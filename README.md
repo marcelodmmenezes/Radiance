@@ -8,8 +8,9 @@ I intend to organize each algorithm/technique in its own folder.
 Since the objective is to learn rendering techniques, I'll be using some libraries for the setup code.
 
 * GLFW (for operating system interfacing) &#8594; https://glfw.org/
-* GLAD (for loading OpenGL functions) &#8594; https://glad.dav1d.de/
+* glad (for loading OpenGL functions) &#8594; https://glad.dav1d.de/
 * Dear ImGui (for user interface) &#8594; https://github.com/ocornut/imgui
+* GLM (for mathematics) &#8584; https://github.com/g-truc/glm
 * stb (for loading image files) &#8594; https://github.com/nothings/stb
 
 Make sure to clone the repository with --recursive to include all submodules.
