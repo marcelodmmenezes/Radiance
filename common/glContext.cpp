@@ -2,6 +2,14 @@
 
 #include <iostream>
 
+void OpenGLContext::setWireframe(bool state) {
+	glPolygonMode(GL_FRONT_AND_BACK, state ? GL_LINE : GL_FILL);
+}
+
+void OpenGLContext::setLineWidth(float width) {
+	glLineWidth(width);
+}
+
 bool OpenGLContext::load(GLADloadproc loader) {
 	if (!gladLoadGLLoader(loader))
 		return false;

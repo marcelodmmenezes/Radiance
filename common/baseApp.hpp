@@ -30,7 +30,9 @@ public:
 
 	bool init();
 	void destroy();
+
 	void run();
+	void close();
 
 	void showInfo(bool show);
 
@@ -57,6 +59,8 @@ protected:
 	bool fullscreen;
 
 	OpenGLContext gl;
+	bool gl_wireframe = false;
+	float gl_line_width = 1.0f;
 };
 
 #endif // BASE_APP_HPP

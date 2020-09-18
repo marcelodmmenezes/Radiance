@@ -83,6 +83,8 @@ void BaseApplication::run() {
 
 	while (!glfwWindowShouldClose(window)) {
 		bool fs = fullscreen;
+		bool wireframe = gl_wireframe;
+		float line_width = gl_line_width;
 
 		clock_now = glfwGetTime();
 		delta_time = clock_now - clock_before;
@@ -97,6 +99,8 @@ void BaseApplication::run() {
 		if (show_info) {
 			ImGui::Begin(title.c_str());
 			ImGui::Checkbox("Fullscreen", &fs);
+			ImGui::Checkbox("Wireframe", &wireframe);
+			ImGui::SliderFloat("Line width", &line_width, 0.5f, 10.0f);
 			ImGui::Dummy(ImVec2(0.0f, 5.0f));
 			ImGui::Separator();
 			ImGui::Text("Delta Time: %.3f", delta_time);
@@ -111,7 +115,25 @@ void BaseApplication::run() {
 		glfwSwapBuffers(window);
 
 		setFullscreen(fs);
+
+		if (wireframe != gl_wireframe) {
+			gl_wireframe = wireframe;
+			gl.setWireframe(gl_wireframe);
+		}
+
+		if (line_width != gl_line_width) {
+			gl_line_width = line_width;
+			gl.setLineWidth(gl_line_width);
+		}
 	}
+}
+
+void BaseApplication::close() {
+	glfwSetWindowShouldClose(window, 1);
+}
+
+void BaseApplication::showInfo(bool show) { 
+	show_info = show;
 }
 
 bool BaseApplication::centerWindow() {
@@ -132,10 +154,6 @@ bool BaseApplication::centerWindow() {
 		monitor_y + (mode->height - window_height) / 2);
 
 	return true;
-}
-
-void BaseApplication::showInfo(bool show) { 
-	show_info = show;
 }
 
 void BaseApplication::setWindowSize(int width, int height) {

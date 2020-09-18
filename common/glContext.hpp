@@ -20,6 +20,9 @@ public:
 	OpenGLContext() {}
 	~OpenGLContext() {}
 
+	void setWireframe(bool state);
+	void setLineWidth(float width);
+
 	bool load(GLADloadproc loader);
 	bool checkErrors();
 	GLuint createProgram(std::vector<ShaderInfo>& shader_infos, bool& success);
