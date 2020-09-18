@@ -35,6 +35,8 @@ bool BaseApplication::init() {
 
 	glfwSetWindowUserPointer(window, this);
 
+	setFullscreen(fullscreen);
+
 	glfwMakeContextCurrent(window);
 	
 	if (!gl.load((GLADloadproc)glfwGetProcAddress)) {
@@ -98,12 +100,19 @@ void BaseApplication::run() {
 
 		if (show_info) {
 			ImGui::Begin(title.c_str());
+
+			if (ImGui::Button("Close"))
+				close();
+
 			ImGui::Checkbox("Fullscreen", &fs);
 			ImGui::Checkbox("Wireframe", &wireframe);
 			ImGui::SliderFloat("Line width", &line_width, 0.5f, 10.0f);
 			ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
 			ImGui::Separator();
+
 			ImGui::Text("Delta Time: %.3f", delta_time);
+
 			ImGui::End();
 		}
 
@@ -114,7 +123,8 @@ void BaseApplication::run() {
 
 		glfwSwapBuffers(window);
 
-		setFullscreen(fs);
+		if (fs != fullscreen)
+			setFullscreen(fs);
 
 		if (wireframe != gl_wireframe) {
 			gl_wireframe = wireframe;
@@ -172,9 +182,6 @@ int BaseApplication::getWindowHeight() {
 }
 
 void BaseApplication::setFullscreen(bool fs) {
-	if (fullscreen == fs)
-		return;
-
 	fullscreen = fs;
 
 	int x, y;

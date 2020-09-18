@@ -89,14 +89,18 @@ private:
 
 		glUseProgram(program_id);
 
-		adjustTextureParameters();
+		adjustTextureProperties();
 		moveSquare(delta_time);
 
 		glm::mat4 transform = 
-			projection * glm::translate(glm::mat4(1.0), square_pos);
+			projection *
+			glm::translate(glm::mat4(1.0), square_pos) *
+			glm::rotate(glm::mat4(1.0),
+				glm::radians(square_angle), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		glUniformMatrix4fv(u_transform_loc, 1,
 			GL_FALSE, glm::value_ptr(transform));
+		glUniform1f(u_angle_loc, glm::radians(texture_angle));
 		glUniform4fv(u_color_loc, 1, glm::value_ptr(square_color));
 		glUniform1i(u_has_color_loc, color_on);
 		glUniform1i(u_has_texture_loc, texture_on);
@@ -119,10 +123,12 @@ private:
 		using namespace ImGui;
 
 		Begin("Square properties");
+
 		Checkbox("Has texture", &texture_on);
 		Checkbox("Has color", &color_on);
 		ColorPicker4("Color", glm::value_ptr(square_color));
 		Dummy(ImVec2(0.0f, 5.0f));
+
 		Separator();
 		Text("Set square position");
 		Dummy(ImVec2(0.0f, 2.0f));
@@ -130,13 +136,26 @@ private:
 		SliderFloat("Y", &square_pos.y, -1.0f, 1.0f);
 		SliderFloat("Z", &square_pos.z, 0.0f, -10.0f);
 		Dummy(ImVec2(0.0f, 5.0f));
+
+		Separator();
+		Text("Set square rotation");
+		SliderFloat("Angle", &square_angle, -90.0f, 90.0f);
+		Dummy(ImVec2(0.0f, 5.0f));
+
 		Separator();
 		Text("Use the W, A, S, D keys to move the square");
 		Dummy(ImVec2(0.0f, 2.0f));
 		SliderFloat("Velocity", &square_velocity, 1.0f, 10.0f);
+
 		End();
 
 		Begin("Texture properties");
+
+		Text("Coordinates rotation");
+		SliderFloat("Angle", &texture_angle, -90.0f, 90.0f);
+		Dummy(ImVec2(0.0f, 5.0f));
+
+		Separator();
 		Text("Filtering");
 		BeginGroup();
 		RadioButton("Nearest", &texture_filtering, 0);
@@ -144,6 +163,7 @@ private:
 		RadioButton("Linear", &texture_filtering, 1);
 		EndGroup();
 		Dummy(ImVec2(0.0f, 5.0f));
+
 		Separator();
 		Text("Wrapping");
 		Dummy(ImVec2(0.0f, 2.0f));
@@ -167,7 +187,7 @@ private:
 		End();
 	}
 
-	void adjustTextureParameters() {
+	void adjustTextureProperties() {
 		switch (texture_filtering) {
 			case 0:
 				glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -238,11 +258,15 @@ private:
 				"layout (location = 1) in vec2 a_tex_coords;"
 				""
 				"uniform mat4 u_transform;"
+				"uniform float u_angle;"
 				""
 				"out vec2 v_tex_coords;"
 				""
 				"void main() {"
-				"	v_tex_coords = a_tex_coords;"
+				"	const mat2 rotate = mat2("
+				"		vec2(cos(u_angle), sin(u_angle)),"
+				"		vec2(-sin(u_angle), cos(u_angle)));"
+				"	v_tex_coords = rotate * a_tex_coords;"
 				"	gl_Position = u_transform * vec4(a_pos, 0.0, 1.0);"
 				"}"
 			},
@@ -280,6 +304,7 @@ private:
 			return false;
 
 		u_transform_loc = glGetUniformLocation(program_id, "u_transform");
+		u_angle_loc = glGetUniformLocation(program_id, "u_angle");
 		u_color_loc = glGetUniformLocation(program_id, "u_color");
 		u_has_color_loc = glGetUniformLocation(program_id, "u_has_color");
 		u_has_texture_loc = glGetUniformLocation(program_id, "u_has_texture");
@@ -345,12 +370,14 @@ private:
 
 	GLuint program_id;
 	GLuint u_transform_loc;
+	GLuint u_angle_loc;
 	GLuint u_color_loc;
 	GLuint u_has_color_loc;
 	GLuint u_has_texture_loc;
 
 	/// Square properties
 	glm::vec3 square_pos = glm::vec3(0.0f, 0.0f, -5.0f);
+	float square_angle = 0.0f;
 	float square_velocity = 6.0f;
 
 	glm::vec4 square_color = glm::vec4(1.0f);
@@ -361,6 +388,7 @@ private:
 	int texture_filtering = 0;
 	int texture_wrap_s = 3;
 	int texture_wrap_t = 3;
+	float texture_angle = 0.0f;
 
 	/// Application state
 	bool up = false;
@@ -413,7 +441,7 @@ void windowResize(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
-	Application app("Hello, World", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Hello, World", WINDOW_WIDTH, WINDOW_HEIGHT, true, true);
 
 	if (app.init()) {
 		app.run();
