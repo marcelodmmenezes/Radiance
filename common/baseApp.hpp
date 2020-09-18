@@ -13,29 +13,45 @@
 
 class BaseApplication {
 public:
-	BaseApplication() {}
+	BaseApplication(
+		std::string const& title,
+		int window_width,
+		int window_height,
+		bool show_info,
+		bool fullscreen)
+		:
+		title{ title },
+		window_width{ window_width },
+		window_height{ window_height },
+		show_info{ show_info },
+		fullscreen{ fullscreen } {}
+
 	virtual ~BaseApplication() {}
 
-	bool init(
-		std::string const& title = "BaseApplication",
-		int window_width = 800,
-		int window_height = 600,
-		bool show_info = true,
-		bool fullscreen = false);
-
+	bool init();
 	void destroy();
 	void run();
+
 	void showInfo(bool show);
 
+	bool centerWindow();
+	void setWindowSize(int width, int height);
+	int getWindowWidth();
+	int getWindowHeight();
+
+	void setFullscreen(bool fs);
+
+protected:
 	virtual bool customInit() = 0;
 	virtual bool customLoop(double delta_time) = 0;
 	virtual void customDestroy() = 0;
 
-protected:
 	bool initialized = false;
 
 	GLFWwindow* window;
 	std::string title;
+	int window_width;
+	int window_height;
 
 	bool show_info;
 	bool fullscreen;

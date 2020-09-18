@@ -2,17 +2,7 @@
 
 #include <iostream>
 
-bool BaseApplication::init(
-	std::string const& title,
-	int window_width,
-	int window_height,
-	bool show_info,
-	bool fullscreen) {
-
-	this->title = title;
-	this->show_info = show_info;
-	this->fullscreen = fullscreen;
-
+bool BaseApplication::init() {
 	if (!glfwInit()) {
 		std::cerr << "ERROR: Could not initialize GLFW\n";
 
@@ -33,6 +23,17 @@ bool BaseApplication::init(
 
 		return false;
 	}
+
+	if (!centerWindow()) {
+		std::cerr << "ERROR: Could not get window properties\n";
+
+		glfwDestroyWindow(window);
+		glfwTerminate();
+
+		return false;
+	}
+
+	glfwSetWindowUserPointer(window, this);
 
 	glfwMakeContextCurrent(window);
 	
@@ -81,6 +82,8 @@ void BaseApplication::run() {
 	double clock_now, clock_before = glfwGetTime(), delta_time;
 
 	while (!glfwWindowShouldClose(window)) {
+		bool fs = fullscreen;
+
 		clock_now = glfwGetTime();
 		delta_time = clock_now - clock_before;
 		clock_before = clock_now;
@@ -93,8 +96,10 @@ void BaseApplication::run() {
 
 		if (show_info) {
 			ImGui::Begin(title.c_str());
-			ImGui::Checkbox("Fullscreen", &fullscreen);
-			ImGui::Text("Delta Time: %f", delta_time);
+			ImGui::Checkbox("Fullscreen", &fs);
+			ImGui::Dummy(ImVec2(0.0f, 5.0f));
+			ImGui::Separator();
+			ImGui::Text("Delta Time: %.3f", delta_time);
 			ImGui::End();
 		}
 
@@ -104,10 +109,81 @@ void BaseApplication::run() {
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		glfwSwapBuffers(window);
+
+		setFullscreen(fs);
 	}
+}
+
+bool BaseApplication::centerWindow() {
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+	if (!monitor)
+		return false;
+
+	GLFWvidmode const* mode = glfwGetVideoMode(monitor);
+
+	if (!mode)
+		return false;
+
+	int monitor_x, monitor_y;
+	glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
+
+	glfwSetWindowPos(window, monitor_x + (mode->width - window_width) / 2,
+		monitor_y + (mode->height - window_height) / 2);
+
+	return true;
 }
 
 void BaseApplication::showInfo(bool show) { 
 	show_info = show;
+}
+
+void BaseApplication::setWindowSize(int width, int height) {
+	window_width = width;
+	window_height = height;
+
+	glfwSetWindowSize(window, width, height);
+}
+
+int BaseApplication::getWindowWidth() {
+	return window_width;
+}
+
+int BaseApplication::getWindowHeight() {
+	return window_height;
+}
+
+void BaseApplication::setFullscreen(bool fs) {
+	if (fullscreen == fs)
+		return;
+
+	fullscreen = fs;
+
+	int x, y;
+
+	glfwGetWindowPos(window, &x, &y);
+
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+	if (!monitor) {
+		std::cerr << "ERROR: Could not get primary monitor\n";
+		abort();
+	}
+
+	GLFWvidmode const* mode = glfwGetVideoMode(monitor);
+
+	if (!mode) {
+		std::cerr << "ERROR: Could not get video mode\n";
+		abort();
+	}
+
+	if (fullscreen)
+		glfwSetWindowMonitor(window, monitor,
+			0, 0, mode->width, mode->height, 0);
+	else
+		glfwSetWindowMonitor(window, nullptr,
+			x + (mode->width - window_width) / 2,
+			y + (mode->height - window_height) / 2,
+			window_width, window_height, 0);
 }
 
