@@ -96,12 +96,12 @@ GLuint OpenGLContext::createProgram(
 
 			return 0u;
 		}
+		else
+			success = true;
 	}
 
 	for (size_t i = 0u; i < shader_ids.size(); ++i)
 		glDeleteShader(shader_ids[i]);
-
-	success = true;
 
 	return program_id;
 }
@@ -123,7 +123,29 @@ GLuint OpenGLContext::compileShader(ShaderInfo& shader_info, bool& success) {
 		glGetShaderInfoLog(shader_id, log_length, nullptr, log.data());
 
 		std::string log_str(log.begin(), log.end());
-		std::cerr << "Program linkage failed:\n" << log_str << "\n\n";
+
+		switch (shader_info.type) {
+			case GL_VERTEX_SHADER:
+				std::cerr << "Vertex ";
+				break;
+			case GL_TESS_CONTROL_SHADER:
+				std::cerr << "Tessellation control ";
+				break;
+			case GL_TESS_EVALUATION_SHADER:
+				std::cerr << "Tessellation evaluation ";
+				break;
+			case GL_GEOMETRY_SHADER:
+				std::cerr << "Geometry ";
+				break;
+			case GL_FRAGMENT_SHADER:
+				std::cerr << "Fragment ";
+				break;
+			case GL_COMPUTE_SHADER:
+				std::cerr << "Compute ";
+				break;
+		}
+
+		std::cerr << "shader compilation failed:\n" << log_str << "\n\n";
 
 		success = false;
 
