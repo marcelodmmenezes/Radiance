@@ -31,12 +31,6 @@ public:
 	~Application() {}
 
 private:
-	struct Vertex {
-		glm::vec3 pos;
-		glm::vec3 nor;
-		glm::vec2 tex;
-	};
-
 	struct Program {
 		GLuint id;
 		GLuint u_transform_loc;
@@ -51,18 +45,20 @@ private:
 			return false;
 
 		createTexture();
-		createGeometry();
+
+		if (!createGeometry())
+			return false;
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
-		if (gl.checkErrors())
+		if (gl.checkErrors(__FILE__, __LINE__))
 			return false;
 
 		return true;
 	}
 
 	bool customLoop(double delta_time) override {
-		if (gl.checkErrors())
+		if (gl.checkErrors(__FILE__, __LINE__))
 			return false;
 
 		buildGUI();
@@ -71,8 +67,12 @@ private:
 
 		glUseProgram(programs[current_program].id);
 
-		glBindVertexArray(vao_id);
-		glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr);
+		// Test
+		glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
+			GL_FALSE, glm::value_ptr(glm::scale(glm::mat4(1.0f), glm::vec3(0.5f))));
+
+		glBindVertexArray(device_mesh.vao_id);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
 		return true;
 	}
@@ -82,10 +82,10 @@ private:
 			if (glIsProgram(programs[i].id))
 				glDeleteProgram(programs[i].id);
 
-		glDeleteTextures(1, &texture_id);
-		glDeleteBuffers(1, &ebo_id);
-		glDeleteBuffers(1, &vbo_id);
-		glDeleteVertexArrays(1, &vao_id);
+		if (glIsTexture(texture_id))
+			glDeleteTextures(1, &texture_id);
+
+		gl.destroyGeometry(device_mesh);
 	}
 
 	void buildGUI() {
@@ -95,12 +95,12 @@ private:
 		Dummy(ImVec2(0.0f, 2.0f));
 		BeginGroup();
 		RadioButton("Lambert Diffuse Lighting", &current_program, 0);
-		RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 1);
-		RadioButton("Phong Lighting", &current_program, 2);
-		RadioButton("Blinn-Phong Lighting", &current_program, 3);
-		RadioButton("Banded Lighting", &current_program, 4);
-		RadioButton("Minnaert Lighting", &current_program, 5);
-		RadioButton("Oren-Nayer Lighting", &current_program, 6);
+		//RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 1);
+		//RadioButton("Phong Lighting", &current_program, 2);
+		//RadioButton("Blinn-Phong Lighting", &current_program, 3);
+		//RadioButton("Banded Lighting", &current_program, 4);
+		//RadioButton("Minnaert Lighting", &current_program, 5);
+		//RadioButton("Oren-Nayer Lighting", &current_program, 6);
 		EndGroup();
 		Dummy(ImVec2(0.0f, 2.0f));
 	}
@@ -211,49 +211,61 @@ private:
 			GL_RED, GL_FLOAT, texture_data.data());
 	}
 
-	void createGeometry() {
-		std::vector<Vertex> vertices {
-			{ { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-			{ { 1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 5.0f, 0.0f } },
-			{ { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 5.0f, 5.0f } },
-			{ { -1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 5.0f } }
+	bool createGeometry() {
+		std::vector<BufferInfo<float>> f_buffers {
+			{
+				"a_pos",
+				3,
+				{
+					-1.0f, -1.0f, 0.0f,
+					1.0f, -1.0f, 0.0f,
+					1.0f, 1.0f, 0.0f,
+					-1.0f, 1.0f, 0.0f
+				}
+			},
+			{
+				"a_nor",
+				3,
+				{
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f
+				}
+			},
+			{
+				"a_tex",
+				2,
+				{
+					0.0f, 0.0f,
+					5.0f, 0.0f,
+					5.0f, 5.0f,
+					0.0f, 5.0f
+				}
+			}
 		};
+
+		std::vector<BufferInfo<int>> i_buffers;
 
 		std::vector<unsigned> indices {
 			0, 1, 2, 0, 2, 3
 		};
 
-		glCreateVertexArrays(1, &vao_id);
-		glBindVertexArray(vao_id);
+		bool success;
 
-		glCreateBuffers(1, &vbo_id);
+		// Assuming all programs attrib locations are the same
+		device_mesh = gl.createPackedStaticGeometry(
+			programs[current_program].id, f_buffers,
+			i_buffers, indices, success);
 
-		glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
-			vertices.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
-			8 * sizeof(float), (GLvoid*)offsetof(Vertex, pos));
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
-			8 * sizeof(float), (GLvoid*)offsetof(Vertex, nor));
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
-			8 * sizeof(float), (GLvoid*)offsetof(Vertex, tex));
-		glEnableVertexAttribArray(2);
+		if (!success)
+			return false;
 
-		glCreateBuffers(1, &ebo_id);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_id);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-			indices.size() * sizeof(unsigned),
-			indices.data(), GL_STATIC_DRAW);
-
-		glBindVertexArray(0);
+		return true;
 	}
 
 	/// OpenGL handles
-	GLuint vao_id;
-	GLuint vbo_id;
-	GLuint ebo_id;
+	DeviceMesh device_mesh;
 
 	GLuint texture_id;
 

@@ -53,11 +53,6 @@ public:
 	}
 
 private:
-	struct Vertex {
-		glm::vec2 pos;
-		glm::vec2 tex;
-	};
-
 	bool customInit() override {
 		glfwSetKeyCallback(window, onKey);
 		glfwSetScrollCallback(window, onMouseScroll);
@@ -69,7 +64,9 @@ private:
 			return false;
 
 		createTexture();
-		createGeometry();
+
+		if (!createGeometry())
+			return false;
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
@@ -114,8 +111,12 @@ private:
 	}
 
 	void customDestroy() override {
-		glDeleteProgram(program_id);
-		glDeleteTextures(1, &texture_id);
+		if (glIsProgram(program_id))
+			glDeleteProgram(program_id);
+
+		if (glIsTexture(texture_id))
+			glDeleteTextures(1, &texture_id);
+
 		gl.destroyGeometry(device_mesh);
 	}
 
@@ -325,7 +326,7 @@ private:
 			GL_RED, GL_FLOAT, texture_data.data());
 	}
 
-	void createGeometry() {
+	bool createGeometry() {
 		std::vector<BufferInfo<float>> f_buffers {
 			{
 				"a_pos",
@@ -355,8 +356,15 @@ private:
 			0, 1, 2, 0, 2, 3
 		};
 
+		bool success;
+
 		device_mesh = gl.createPackedStaticGeometry(
-			program_id, f_buffers, i_buffers, indices);
+			program_id, f_buffers, i_buffers, indices, success);
+
+		if (!success)
+			return false;
+
+		return true;
 	}
 
 	/// OpenGL handles

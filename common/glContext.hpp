@@ -53,7 +53,8 @@ public:
 		GLuint program_id,
 		std::vector<BufferInfo<float>> const& f_buffers,
 		std::vector<BufferInfo<int>> const& i_buffers,
-		std::vector<unsigned> const& indices);
+		std::vector<unsigned> const& indices,
+		bool& success);
 
 	void destroyGeometry(DeviceMesh& mesh);
 

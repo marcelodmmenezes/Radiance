@@ -179,7 +179,8 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	GLuint program_id,
 	std::vector<BufferInfo<float>> const& f_buffers,
 	std::vector<BufferInfo<int>> const& i_buffers,
-	std::vector<unsigned> const& indices) {
+	std::vector<unsigned> const& indices,
+	bool& success) {
 
 	assert(glIsProgram(program_id) == GL_TRUE && "Program is not valid");
 
@@ -232,8 +233,17 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 		GLint location = glGetAttribLocation(
 			program_id, f_buffers[i].attribute_name.c_str());
 
+		if (location == -1) {
+			std::cerr << "ERROR: " << f_buffers[i].attribute_name
+				<< " is not active in the program\n\n";
+
+			success = false;
+
+			return mesh;
+		}
+
 		glVertexAttribPointer(location, f_buffers[i].n_components,
-			GL_FLOAT, GL_FALSE, vertex_size_in_bytes, (GLvoid*)&byte_offset);
+			GL_FLOAT, GL_FALSE, vertex_size_in_bytes, (GLvoid*)byte_offset);
 		glEnableVertexAttribArray(location);
 
 		byte_offset += f_buffers[i].n_components * sizeof(float);
@@ -243,8 +253,17 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 		GLint location = glGetAttribLocation(
 			program_id, i_buffers[i].attribute_name.c_str());
 
+		if (location == -1) {
+			std::cerr << "ERROR: " << f_buffers[i].attribute_name
+				<< " is not active in the program\n\n";
+
+			success = false;
+
+			return mesh;
+		}
+
 		glVertexAttribIPointer(location, i_buffers[i].n_components,
-			GL_INT, vertex_size_in_bytes, (GLvoid*)&byte_offset);
+			GL_INT, vertex_size_in_bytes, (GLvoid*)byte_offset);
 		glEnableVertexAttribArray(location);
 
 		byte_offset += i_buffers[i].n_components * sizeof(int);
@@ -258,6 +277,8 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	glBindVertexArray(0u);
 	glBindBuffer(GL_ARRAY_BUFFER, 0u);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+	success = true;
 
 	return mesh;
 }
