@@ -231,12 +231,15 @@ private:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
 		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
 			vertices.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
-			4 * sizeof(float), (GLvoid*)offsetof(Vertex, pos));
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+			8 * sizeof(float), (GLvoid*)offsetof(Vertex, pos));
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
-			4 * sizeof(float), (GLvoid*)offsetof(Vertex, tex));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,
+			8 * sizeof(float), (GLvoid*)offsetof(Vertex, nor));
 		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE,
+			8 * sizeof(float), (GLvoid*)offsetof(Vertex, tex));
+		glEnableVertexAttribArray(2);
 
 		glCreateBuffers(1, &ebo_id);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_id);
@@ -256,8 +259,16 @@ private:
 
 	Program programs[N_LIGHTING_MODELS];
 
-	// Application state
-	int current_program;
+	/// Cube properties
+	glm::vec3 cube_pos = glm::vec3(0.0f, 0.0f, -5.0f);
+	float cube_pitch = 0.0f;
+	float cube_yaw = 0.0f;
+	float cube_roll = 0.0f;
+
+	/// Application state
+	int current_program = 0;
+
+	glm::mat4 projection;
 };
 
 void windowResize(GLFWwindow* window, int width, int height) {

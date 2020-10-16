@@ -24,7 +24,7 @@ bool OpenGLContext::load(GLADloadproc loader) {
 	return true;
 }
 
-bool OpenGLContext::checkErrors() {
+bool OpenGLContext::checkErrors(std::string const& file, int line) {
 	GLenum error;
 	bool has_error = false;
 
@@ -33,7 +33,7 @@ bool OpenGLContext::checkErrors() {
 
 #define CASE(error) \
 	case (error): \
-		std::cerr << #error "\n"; \
+		std::cerr << #error "\nFile: " << file << "\nLine: " << line << '\n'; \
 		break
 
 			CASE(GL_INVALID_ENUM);
@@ -155,5 +155,121 @@ GLuint OpenGLContext::compileShader(ShaderInfo& shader_info, bool& success) {
 	success = true;
 
 	return shader_id;
+}
+
+template <typename T>
+void populateBufferChunk(
+	GLuint buffer_id,
+	size_t vertex_id,
+	size_t byte_offset,
+	size_t vertex_size_in_bytes,
+	std::vector<BufferInfo<T>> const& buffer) {
+
+	for (size_t i = 0u; i < buffer.size(); ++i) {
+		glNamedBufferSubData(buffer_id,
+			vertex_id * vertex_size_in_bytes + byte_offset,
+			buffer[i].n_components * sizeof(T),
+			buffer[i].values.data() + vertex_id * buffer[i].n_components);
+
+		byte_offset += buffer[i].n_components * sizeof(T);
+	}
+}
+
+DeviceMesh OpenGLContext::createPackedStaticGeometry(
+	GLuint program_id,
+	std::vector<BufferInfo<float>> const& f_buffers,
+	std::vector<BufferInfo<int>> const& i_buffers,
+	std::vector<unsigned> const& indices) {
+
+	assert(glIsProgram(program_id) == GL_TRUE && "Program is not valid");
+
+	size_t n_buffers = f_buffers.size() + i_buffers.size();
+
+	assert(n_buffers >= 1u && "At least one buffer must be passed");
+
+	size_t n_vertices;
+
+	if (f_buffers.size() > 0u)
+		n_vertices = f_buffers[0].values.size() / f_buffers[0].n_components;
+	else
+		n_vertices = i_buffers[0].values.size() / i_buffers[0].n_components;
+
+	size_t vertex_size_in_bytes = 0u;
+
+	for (auto& it : f_buffers)
+		vertex_size_in_bytes += it.n_components * sizeof(float);
+
+	for (auto& it : i_buffers)
+		vertex_size_in_bytes += it.n_components * sizeof(int);
+
+	DeviceMesh mesh;
+	mesh.n_indices = indices.size();
+
+	glCreateVertexArrays(1, &mesh.vao_id);
+	glCreateBuffers(1, &mesh.vbo_id);
+	glCreateBuffers(1, &mesh.ebo_id);
+
+	glBindVertexArray(mesh.vao_id);
+
+	glNamedBufferData(mesh.vbo_id,
+		n_vertices * vertex_size_in_bytes,
+		nullptr, GL_STATIC_DRAW);
+
+	for (size_t i = 0u; i < n_vertices; ++i) {
+		size_t byte_offset = 0u;
+
+		populateBufferChunk(mesh.vbo_id, i, byte_offset,
+			vertex_size_in_bytes, f_buffers);
+		populateBufferChunk(mesh.vbo_id, i, byte_offset,
+			vertex_size_in_bytes, i_buffers);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo_id);
+
+	size_t byte_offset = 0u;
+
+	for (size_t i = 0u; i < f_buffers.size(); ++i) {
+		GLint location = glGetAttribLocation(
+			program_id, f_buffers[i].attribute_name.c_str());
+
+		glVertexAttribPointer(location, f_buffers[i].n_components,
+			GL_FLOAT, GL_FALSE, vertex_size_in_bytes, (GLvoid*)&byte_offset);
+		glEnableVertexAttribArray(location);
+
+		byte_offset += f_buffers[i].n_components * sizeof(float);
+	}
+
+	for (size_t i = 0u; i < i_buffers.size(); ++i) {
+		GLint location = glGetAttribLocation(
+			program_id, i_buffers[i].attribute_name.c_str());
+
+		glVertexAttribIPointer(location, i_buffers[i].n_components,
+			GL_INT, vertex_size_in_bytes, (GLvoid*)&byte_offset);
+		glEnableVertexAttribArray(location);
+
+		byte_offset += i_buffers[i].n_components * sizeof(int);
+	}
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo_id);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+		indices.size() * sizeof(unsigned),
+		indices.data(), GL_STATIC_DRAW);
+
+	glBindVertexArray(0u);
+	glBindBuffer(GL_ARRAY_BUFFER, 0u);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+	return mesh;
+}
+
+void OpenGLContext::destroyGeometry(DeviceMesh& mesh) {
+	if (glIsBuffer(mesh.ebo_id))
+		glDeleteBuffers(1, &mesh.ebo_id);
+
+	if (glIsBuffer(mesh.vbo_id))
+		glDeleteBuffers(1, &mesh.vbo_id);
+
+	if (glIsVertexArray(mesh.vao_id))
+		glDeleteVertexArrays(1, &mesh.vao_id);
 }
 

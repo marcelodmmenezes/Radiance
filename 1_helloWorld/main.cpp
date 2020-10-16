@@ -73,14 +73,14 @@ private:
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
-		if (gl.checkErrors())
+		if (gl.checkErrors(__FILE__, __LINE__))
 			return false;
 
 		return true;
 	}
 
 	bool customLoop(double delta_time) override {
-		if (gl.checkErrors())
+		if (gl.checkErrors(__FILE__, __LINE__))
 			return false;
 
 		buildGUI();
@@ -105,8 +105,10 @@ private:
 		glUniform1i(u_has_color_loc, color_on);
 		glUniform1i(u_has_texture_loc, texture_on);
 
-		glBindVertexArray(vao_id);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+		glBindVertexArray(device_mesh.vao_id);
+		glDrawElements(GL_TRIANGLES,
+			device_mesh.n_indices,
+			GL_UNSIGNED_INT, nullptr);
 
 		return true;
 	}
@@ -114,9 +116,7 @@ private:
 	void customDestroy() override {
 		glDeleteProgram(program_id);
 		glDeleteTextures(1, &texture_id);
-		glDeleteBuffers(1, &ebo_id);
-		glDeleteBuffers(1, &vbo_id);
-		glDeleteVertexArrays(1, &vao_id);
+		gl.destroyGeometry(device_mesh);
 	}
 
 	void buildGUI() {
@@ -326,45 +326,41 @@ private:
 	}
 
 	void createGeometry() {
-		std::vector<Vertex> vertices {
-			{ { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-			{ { 1.0f, -1.0f }, { 5.0f, 0.0f } },
-			{ { 1.0f, 1.0f }, { 5.0f, 5.0f } },
-			{ { -1.0f, 1.0f }, { 0.0f, 5.0f } }
+		std::vector<BufferInfo<float>> f_buffers {
+			{
+				"a_pos",
+				2,
+				{
+					-1.0f, -1.0f,
+					1.0f, -1.0f,
+					1.0f, 1.0f,
+					-1.0f, 1.0f
+				}
+			},
+			{
+				"a_tex_coords",
+				2,
+				{
+					0.0f, 0.0f,
+					5.0f, 0.0f,
+					5.0f, 5.0f,
+					0.0f, 5.0f
+				}
+			}
 		};
+
+		std::vector<BufferInfo<int>> i_buffers;
 
 		std::vector<unsigned> indices {
 			0, 1, 2, 0, 2, 3
 		};
 
-		glCreateVertexArrays(1, &vao_id);
-		glBindVertexArray(vao_id);
-
-		glCreateBuffers(1, &vbo_id);
-
-		glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex),
-			vertices.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE,
-			4 * sizeof(float), (GLvoid*)offsetof(Vertex, pos));
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
-			4 * sizeof(float), (GLvoid*)offsetof(Vertex, tex));
-		glEnableVertexAttribArray(1);
-
-		glCreateBuffers(1, &ebo_id);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_id);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-			indices.size() * sizeof(unsigned),
-			indices.data(), GL_STATIC_DRAW);
-
-		glBindVertexArray(0);
+		device_mesh = gl.createPackedStaticGeometry(
+			program_id, f_buffers, i_buffers, indices);
 	}
 
 	/// OpenGL handles
-	GLuint vao_id;
-	GLuint vbo_id;
-	GLuint ebo_id;
+	DeviceMesh device_mesh;
 
 	GLuint texture_id;
 
