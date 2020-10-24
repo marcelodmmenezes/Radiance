@@ -82,7 +82,7 @@ private:
 			GL_FALSE, glm::value_ptr(nor_transform));
 
 		glBindVertexArray(device_mesh.vao_id);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+		glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, nullptr);
 
 		return true;
 	}
@@ -230,58 +230,11 @@ private:
 	}
 
 	bool createGeometry() {
-		/*
-		std::vector<BufferInfo<float>> f_buffers {
-			{
-				"a_pos",
-				3,
-				{
-					-1.0f, -1.0f, -5.0f,
-					1.0f, -1.0f, -5.0f,
-					1.0f, 1.0f, -5.0f,
-					-1.0f, 1.0f, -5.0f
-				}
-			},
-			{
-				"a_nor",
-				3,
-				{
-					0.0f, 0.0f, 1.0f,
-					0.0f, 0.0f, 1.0f,
-					0.0f, 0.0f, 1.0f,
-					0.0f, 0.0f, 1.0f
-				}
-			},
-			{
-				"a_tex",
-				2,
-				{
-					0.0f, 0.0f,
-					5.0f, 0.0f,
-					5.0f, 5.0f,
-					0.0f, 5.0f
-				}
-			}
-		};
-
-		std::vector<BufferInfo<int>> i_buffers;
-
-		std::vector<unsigned> indices {
-			0, 1, 2, 0, 2, 3
-		};
-
-		bool success;
-
-		// Assuming all programs attrib locations are the same
-		device_mesh = gl.createPackedStaticGeometry(
-			programs[current_program].id, f_buffers,
-			i_buffers, indices, success);
-		*/
-
 		std::vector<BufferInfo<float>> f_buffers;
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
 
+		//bool success = parseOBJ("../res/square.obj", f_buffers, indices);
 		bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
 
 		if (!success)
@@ -300,6 +253,8 @@ private:
 		if (!success)
 			return false;
 
+		n_indices = indices.size();
+
 		return true;
 	}
 
@@ -315,6 +270,8 @@ private:
 	float cube_pitch = 0.0f;
 	float cube_yaw = 0.0f;
 	float cube_roll = 0.0f;
+
+	size_t n_indices = 0u;
 
 	/// Application state
 	int current_program = 0;

@@ -56,7 +56,7 @@ bool parseOBJ(
 			int pos_id, nor_id, uvs_id;
 
 			for (size_t i = 0; i < 3; ++i) {
-				file >> pos_id >> in_char >> nor_id >> in_char >> uvs_id;
+				file >> pos_id >> in_char >> uvs_id >> in_char >> nor_id;
 
 				std::tuple<int, int, int> face {
 					pos_id - 1,
