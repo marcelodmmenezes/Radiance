@@ -1,4 +1,5 @@
 #include "../common/baseApp.hpp"
+#include "../common/objParser.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -30,10 +31,15 @@ public:
 
 	~Application() {}
 
+	void setProjection(glm::mat4&& proj) {
+		projection = proj;
+	}
+
 private:
 	struct Program {
 		GLuint id;
 		GLuint u_transform_loc;
+		GLuint u_nor_transform_loc;
 	};
 
 	bool customInit() override {
@@ -67,9 +73,13 @@ private:
 
 		glUseProgram(programs[current_program].id);
 
-		// Test
+		glm::mat4 transform = projection * glm::mat4(1.0f);
+		glm::mat3 nor_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
+
 		glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
-			GL_FALSE, glm::value_ptr(glm::scale(glm::mat4(1.0f), glm::vec3(0.5f))));
+			GL_FALSE, glm::value_ptr(transform));
+		glUniformMatrix3fv(programs[current_program].u_nor_transform_loc, 1,
+			GL_FALSE, glm::value_ptr(nor_transform));
 
 		glBindVertexArray(device_mesh.vao_id);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
@@ -91,7 +101,7 @@ private:
 	void buildGUI() {
 		using namespace ImGui;
 
-		Text("Lighting Model");
+		Begin("Lighting Model");
 		Dummy(ImVec2(0.0f, 2.0f));
 		BeginGroup();
 		RadioButton("Lambert Diffuse Lighting", &current_program, 0);
@@ -103,6 +113,7 @@ private:
 		//RadioButton("Oren-Nayer Lighting", &current_program, 6);
 		EndGroup();
 		Dummy(ImVec2(0.0f, 2.0f));
+		End();
 	}
 
 	bool createProgram() {
@@ -173,6 +184,8 @@ private:
 
 			programs[i].u_transform_loc =
 				glGetUniformLocation(programs[i].id, "u_transform");
+			programs[i].u_nor_transform_loc =
+				glGetUniformLocation(programs[i].id, "u_nor_transform");
 		}
 
 		return true;
@@ -188,13 +201,13 @@ private:
 		int vs_size = vs.tellg();
 		shaders[0].type = GL_VERTEX_SHADER;
 		shaders[0].source.resize(vs_size);
-		vs.seekg(std::ios::beg);
+		vs.seekg(0, std::ios::beg);
 		vs.read(&shaders[0].source[0], vs_size);
 
 		int fs_size = fs.tellg();
 		shaders[1].type = GL_FRAGMENT_SHADER;
 		shaders[1].source.resize(fs_size); 
-		fs.seekg(std::ios::beg);
+		fs.seekg(0, std::ios::beg);
 		fs.read(&shaders[1].source[0], fs_size);
 	}
 
@@ -205,22 +218,28 @@ private:
 		};
 
 		glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
-		glBindTextureUnit(0, texture_id);
+
+		glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
 		glTextureStorage2D(texture_id, 1, GL_R32F, 2, 2);
 		glTextureSubImage2D(texture_id, 0, 0, 0, 2, 2,
 			GL_RED, GL_FLOAT, texture_data.data());
+
+		glBindTextureUnit(0, texture_id);
 	}
 
 	bool createGeometry() {
+		/*
 		std::vector<BufferInfo<float>> f_buffers {
 			{
 				"a_pos",
 				3,
 				{
-					-1.0f, -1.0f, 0.0f,
-					1.0f, -1.0f, 0.0f,
-					1.0f, 1.0f, 0.0f,
-					-1.0f, 1.0f, 0.0f
+					-1.0f, -1.0f, -5.0f,
+					1.0f, -1.0f, -5.0f,
+					1.0f, 1.0f, -5.0f,
+					-1.0f, 1.0f, -5.0f
 				}
 			},
 			{
@@ -257,6 +276,26 @@ private:
 		device_mesh = gl.createPackedStaticGeometry(
 			programs[current_program].id, f_buffers,
 			i_buffers, indices, success);
+		*/
+
+		std::vector<BufferInfo<float>> f_buffers;
+		std::vector<BufferInfo<int>> i_buffers;
+		std::vector<unsigned> indices;
+
+		bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
+
+		if (!success)
+			return false;
+
+		f_buffers[0].attribute_name = "a_pos";
+		f_buffers[1].attribute_name = "a_nor";
+		f_buffers[2].attribute_name = "a_tex";
+
+		// Assuming all programs attrib locations are the same
+		// Shader must specify attrib location on layout
+		device_mesh = gl.createPackedStaticGeometry(
+			programs[current_program].id, f_buffers,
+			i_buffers, indices, success);
 
 		if (!success)
 			return false;
@@ -284,6 +323,12 @@ private:
 };
 
 void windowResize(GLFWwindow* window, int width, int height) {
+	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+	app->setProjection(glm::perspective(
+		glm::radians(60.0f), (float)width / height, 0.1f, 100.0f));
+
+	glViewport(0, 0, width, height);
 }
 
 int main() {

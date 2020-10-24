@@ -116,7 +116,8 @@ void BaseApplication::run() {
 			ImGui::End();
 		}
 
-		customLoop(delta_time);
+		if (!customLoop(delta_time))
+			close();
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

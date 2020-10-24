@@ -44,7 +44,9 @@ public:
 	bool load(GLADloadproc loader);
 	bool checkErrors(std::string const& file, int line);
 
-	GLuint createProgram(std::vector<ShaderInfo>& shader_infos, bool& success);
+	GLuint createProgram(
+		std::vector<ShaderInfo>& shader_infos,
+		bool& success) const;
 
 	// - Each buffer should have the same number of
 	// vertices (values.size() / n_components)
@@ -54,12 +56,12 @@ public:
 		std::vector<BufferInfo<float>> const& f_buffers,
 		std::vector<BufferInfo<int>> const& i_buffers,
 		std::vector<unsigned> const& indices,
-		bool& success);
+		bool& success) const;
 
-	void destroyGeometry(DeviceMesh& mesh);
+	void destroyGeometry(DeviceMesh& mesh) const;
 
 private:
-	GLuint compileShader(ShaderInfo& shader_info, bool& success);
+	GLuint compileShader(ShaderInfo& shader_info, bool& success) const;
 };
 
 #endif // GL_CONTEXT_HPP

@@ -57,7 +57,7 @@ bool OpenGLContext::checkErrors(std::string const& file, int line) {
 
 GLuint OpenGLContext::createProgram(
 	std::vector<ShaderInfo>& shader_infos,
-	bool& success) {
+	bool& success) const {
 
 	success = false;
 	GLuint program_id;
@@ -106,7 +106,10 @@ GLuint OpenGLContext::createProgram(
 	return program_id;
 }
 
-GLuint OpenGLContext::compileShader(ShaderInfo& shader_info, bool& success) {
+GLuint OpenGLContext::compileShader(
+	ShaderInfo& shader_info,
+	bool& success) const {
+
 	GLuint shader_id = glCreateShader(shader_info.type);
 	GLchar* source_c_str = (GLchar*)shader_info.source.c_str();
 	glShaderSource(shader_id, 1, &source_c_str, nullptr);
@@ -180,7 +183,7 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	std::vector<BufferInfo<float>> const& f_buffers,
 	std::vector<BufferInfo<int>> const& i_buffers,
 	std::vector<unsigned> const& indices,
-	bool& success) {
+	bool& success) const {
 
 	assert(glIsProgram(program_id) == GL_TRUE && "Program is not valid");
 
@@ -283,7 +286,7 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	return mesh;
 }
 
-void OpenGLContext::destroyGeometry(DeviceMesh& mesh) {
+void OpenGLContext::destroyGeometry(DeviceMesh& mesh) const {
 	if (glIsBuffer(mesh.ebo_id))
 		glDeleteBuffers(1, &mesh.ebo_id);
 
