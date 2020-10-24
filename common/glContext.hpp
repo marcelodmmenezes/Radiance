@@ -44,6 +44,9 @@ public:
 	bool load(GLADloadproc loader);
 	bool checkErrors(std::string const& file, int line);
 
+	void enable(GLenum capability);
+	void disable(GLenum capability);
+
 	GLuint createProgram(
 		std::vector<ShaderInfo>& shader_infos,
 		bool& success) const;

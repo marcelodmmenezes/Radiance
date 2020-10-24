@@ -4,6 +4,7 @@ main:
 	g++ main.cpp \
 	../common/baseApp.cpp \
 	../common/glContext.cpp \
+	../common/flyThroughCamera.cpp \
 	../common/objParser.cpp \
 	$(TP)glad/glad.c \
 	$(TP)imgui/imgui.cpp $(TP)imgui/imgui_draw.cpp $(TP)imgui/imgui_widgets.cpp \

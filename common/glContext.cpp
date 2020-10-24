@@ -55,6 +55,14 @@ bool OpenGLContext::checkErrors(std::string const& file, int line) {
 	return has_error;
 }
 
+void OpenGLContext::enable(GLenum capability) {
+	glEnable(capability);
+}
+
+void OpenGLContext::disable(GLenum capability) {
+	glDisable(capability);
+}
+
 GLuint OpenGLContext::createProgram(
 	std::vector<ShaderInfo>& shader_infos,
 	bool& success) const {

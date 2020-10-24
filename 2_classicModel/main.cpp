@@ -1,4 +1,5 @@
 #include "../common/baseApp.hpp"
+#include "../common/flyThroughCamera.hpp"
 #include "../common/objParser.hpp"
 
 #include <fstream>
@@ -11,6 +12,9 @@
 
 #define N_LIGHTING_MODELS 7
 
+void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+void onMouseMove(GLFWwindow* window, double xpos, double ypos);
+void onMouseButton(GLFWwindow* window, int button, int action, int mods);
 void windowResize(GLFWwindow* window, int width, int height);
 
 class Application : public BaseApplication {
@@ -31,6 +35,46 @@ public:
 
 	~Application() {}
 
+	void moveForward(bool state) {
+		forward = state;
+	}
+
+	void moveBackward(bool state) {
+		backward = state;
+	}
+
+	void moveLeft(bool state) {
+		left = state;
+	}
+
+	void moveRight(bool state) {
+		right = state;
+	}
+
+	void moveUp(bool state) {
+		up = state;
+	}
+
+	void moveDown(bool state) {
+		down = state;
+	}
+
+	void updateMousePos(double x, double y) {
+		mouse_x = x;
+		mouse_y = y;
+	}
+
+	void mouseGrab(bool state) {
+		mouse_grab = state;
+	}
+
+	void speed(bool fast) {
+		if (fast)
+			camera.setSpeed(fast_speed);
+		else
+			camera.setSpeed(normal_speed);
+	}
+
 	void setProjection(glm::mat4&& proj) {
 		projection = proj;
 	}
@@ -43,6 +87,9 @@ private:
 	};
 
 	bool customInit() override {
+		glfwSetKeyCallback(window, onKey);
+		glfwSetCursorPosCallback(window, onMouseMove);
+		glfwSetMouseButtonCallback(window, onMouseButton);
 		glfwSetWindowSizeCallback(window, windowResize);
 
 		windowResize(window, window_width, window_height);
@@ -57,6 +104,8 @@ private:
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
+		gl.enable(GL_DEPTH_TEST);
+
 		if (gl.checkErrors(__FILE__, __LINE__))
 			return false;
 
@@ -68,13 +117,15 @@ private:
 			return false;
 
 		buildGUI();
+		updateCamera(delta_time);
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glUseProgram(programs[current_program].id);
 
-		glm::mat4 transform = projection * glm::mat4(1.0f);
+		glm::mat4 transform = glm::mat4(1.0f);
 		glm::mat3 nor_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
+		transform = projection * camera.getViewMatrix() * transform;
 
 		glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
 			GL_FALSE, glm::value_ptr(transform));
@@ -114,6 +165,29 @@ private:
 		EndGroup();
 		Dummy(ImVec2(0.0f, 2.0f));
 		End();
+	}
+
+	void updateCamera(float delta_time) {
+		if (forward)
+			camera.move(CameraDirection::FORWARD, delta_time);
+		else if (backward)
+			camera.move(CameraDirection::BACKWARD, delta_time);
+
+		if (left)
+			camera.move(CameraDirection::LEFT, delta_time);
+		else if (right)
+			camera.move(CameraDirection::RIGHT, delta_time);
+
+		if (up)
+			camera.move(CameraDirection::UP, delta_time);
+		else if (down)
+			camera.move(CameraDirection::DOWN, delta_time);
+
+		if (mouse_grab)
+			camera.look(mouse_last_x - mouse_x, mouse_last_y - mouse_y, delta_time);
+
+		mouse_last_x = mouse_x;
+		mouse_last_y = mouse_y;
 	}
 
 	bool createProgram() {
@@ -276,8 +350,74 @@ private:
 	/// Application state
 	int current_program = 0;
 
+	FlyThroughCamera camera;
+
+	bool forward = false;
+	bool backward = false;
+	bool left = false;
+	bool right = false;
+	bool up = false;
+	bool down = false;
+
+	float normal_speed = 1.0f;
+	float fast_speed = 5.0f;
+
+	bool mouse_grab = false;
+	double mouse_x;
+	double mouse_y;
+	double mouse_last_x = 0.0f;
+	double mouse_last_y = 0.0f;
+
 	glm::mat4 projection;
 };
+
+void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+	app->speed((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT);
+
+	switch (key) {
+		case GLFW_KEY_W:
+			app->moveForward(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_A:
+			app->moveLeft(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_S:
+			app->moveBackward(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_D:
+			app->moveRight(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_Q:
+			app->moveUp(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_E:
+			app->moveDown(action != GLFW_RELEASE);
+			break;
+
+		case GLFW_KEY_ESCAPE:
+			app->close();
+	}
+}
+
+void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
+	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+	app->updateMousePos(xpos, ypos);
+}
+
+void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+		app->mouseGrab(action != GLFW_RELEASE);
+}
 
 void windowResize(GLFWwindow* window, int width, int height) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
