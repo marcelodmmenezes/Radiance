@@ -24,14 +24,6 @@ FlyThroughCamera::FlyThroughCamera(
 	new_yaw { yaw },
 	new_pitch { pitch } {}
 
-glm::vec3 FlyThroughCamera::getPosition() const {
-	return position;
-}
-
-glm::vec3 FlyThroughCamera::getForward() const {
-	return forward;
-}
-
 glm::mat4 FlyThroughCamera::getViewMatrix() {
 	new_yaw = look_mix_factor * new_yaw + (1.0f - look_mix_factor) * yaw;
 	new_pitch = look_mix_factor * new_pitch + (1.0f - look_mix_factor) * pitch;
@@ -56,16 +48,8 @@ glm::mat4 FlyThroughCamera::getViewMatrix() {
 	return glm::lookAt(new_position, new_position + forward, up);
 }
 
-void FlyThroughCamera::setSpeed(float value) {
-	move_speed = value;
-}
-
-float FlyThroughCamera::getSpeed() const {
-	return move_speed;
-}
-
 void FlyThroughCamera::move(CameraDirection direction, double delta_time) {
-	float velocity = move_speed * delta_time;
+	float velocity = speed_multiplier * move_speed * delta_time;
 
 	switch (direction) {
 		case CameraDirection::FORWARD:
@@ -102,5 +86,12 @@ void FlyThroughCamera::look(float x_offset, float y_offset, double delta_time) {
 		pitch = 89.0f;
 	else if (pitch < -89.0f)
 		pitch = -89.0f;
+}
+
+void FlyThroughCamera::fast(bool is_fast) {
+	if (is_fast)
+		speed_multiplier = 5.0f;
+	else
+		speed_multiplier = 1.0f;
 }
 

@@ -26,23 +26,16 @@ public:
 		float move_mix_factor = 0.9f,
 		float look_mix_factor = 0.8f);
 
-	glm::vec3 getPosition() const;
-	glm::vec3 getForward() const;
-	glm::mat4 getViewMatrix();
-
-	void setSpeed(float move_speed);
-	float getSpeed() const;
-
 	void move(CameraDirection direction, double delta_time);
 	void look(float x_offset, float y_offset, double delta_time);
+	void fast(bool is_fast);
 
-private:
+	glm::mat4 getViewMatrix();
+
 	glm::vec3 position;
 	glm::vec3 forward;
-	glm::vec3 up;
 	glm::vec3 right;
-
-	glm::mat4 view_matrix;
+	glm::vec3 up;
 
 	float yaw;
 	float pitch;
@@ -51,7 +44,9 @@ private:
 	float move_mix_factor;
 	float look_mix_factor;
 
-	// Interpolation
+private:
+	float speed_multiplier = 1.0f;
+
 	glm::vec3 new_position;
 	float new_yaw;
 	float new_pitch;

@@ -10,7 +10,7 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-#define N_LIGHTING_MODELS 7
+#define N_LIGHTING_MODELS 8
 
 void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
@@ -68,11 +68,8 @@ public:
 		mouse_grab = state;
 	}
 
-	void speed(bool fast) {
-		if (fast)
-			camera.setSpeed(fast_speed);
-		else
-			camera.setSpeed(normal_speed);
+	void fastCamera(bool fast) {
+		camera.fast(fast);
 	}
 
 	void setProjection(glm::mat4&& proj) {
@@ -152,17 +149,50 @@ private:
 	void buildGUI() {
 		using namespace ImGui;
 
+		/// LIGHTING MODEL
 		Begin("Lighting Model");
 		Dummy(ImVec2(0.0f, 2.0f));
+
 		BeginGroup();
-		RadioButton("Lambert Diffuse Lighting", &current_program, 0);
-		//RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 1);
-		//RadioButton("Phong Lighting", &current_program, 2);
-		//RadioButton("Blinn-Phong Lighting", &current_program, 3);
-		//RadioButton("Banded Lighting", &current_program, 4);
-		//RadioButton("Minnaert Lighting", &current_program, 5);
+		RadioButton("None", &current_program, 0);
+		//RadioButton("Lambert Diffuse Lighting", &current_program, 1);
+		//RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 2);
+		//RadioButton("Phong Lighting", &current_program, 3);
+		//RadioButton("Blinn-Phong Lighting", &current_program, 4);
+		//RadioButton("Banded Lighting", &current_program, 5);
+		//RadioButton("Minnaert Lighting", &current_program, 6);
 		//RadioButton("Oren-Nayer Lighting", &current_program, 6);
 		EndGroup();
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		End();
+
+		/// CAMERA
+		Begin("Camera");
+		Dummy(ImVec2(0.0f, 2.0f));
+
+		Text("To move the camera use WASD and QE keys");
+		Text("To look around click and drag with RMB");
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		SliderFloat("Move Speed", &camera.move_speed, 1.0f, 20.0f);
+		SliderFloat("Look Speed", &camera.look_speed, 1.0f, 20.0f);
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		SliderFloat("X", &camera.position.x, -10.0f, 10.0f);
+		SliderFloat("Y", &camera.position.y, -10.0f, 10.0f);
+		SliderFloat("Z", &camera.position.z, -10.0f, 10.0f);
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		SliderFloat("Yaw", &camera.yaw, 180.0f, -180.0f);
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		SliderFloat("Pitch", &camera.pitch, -89.0f, 89.0f);
+
 		Dummy(ImVec2(0.0f, 2.0f));
 		End();
 	}
@@ -194,6 +224,10 @@ private:
 		std::vector<ShaderInfo> shaders[N_LIGHTING_MODELS];
 
 		std::string files[N_LIGHTING_MODELS][2] {
+			{
+				"shaders/none/vs.glsl",
+				"shaders/none/fs.glsl",
+			},
 			{
 				"shaders/lambert/vs.glsl",
 				"shaders/lambert/fs.glsl",
@@ -347,9 +381,7 @@ private:
 
 	size_t n_indices = 0u;
 
-	/// Application state
-	int current_program = 0;
-
+	/// Camera
 	FlyThroughCamera camera;
 
 	bool forward = false;
@@ -359,8 +391,8 @@ private:
 	bool up = false;
 	bool down = false;
 
-	float normal_speed = 1.0f;
-	float fast_speed = 5.0f;
+	/// Application state
+	int current_program = 0;
 
 	bool mouse_grab = false;
 	double mouse_x;
@@ -374,7 +406,7 @@ private:
 void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
-	app->speed((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT);
+	app->fastCamera((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT);
 
 	switch (key) {
 		case GLFW_KEY_W:
@@ -415,8 +447,16 @@ void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
 void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT)
-		app->mouseGrab(action != GLFW_RELEASE);
+	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+		if (action != GLFW_RELEASE) {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			app->mouseGrab(true);
+		}
+		else {
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			app->mouseGrab(false);
+		}
+	}
 }
 
 void windowResize(GLFWwindow* window, int width, int height) {
