@@ -31,7 +31,13 @@ public:
 			window_width,
 			window_height,
 			show_info,
-			fullscreen) {}
+			fullscreen) {
+
+		dir_light.direction = glm::vec3(-1.0f, -1.0f, -1.0f);
+		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
+
+		camera = FlyThroughCamera(glm::vec3(-3.0f, 3.0f, 3.0f), -45.0f, -30.0f);
+	}
 
 	~Application() {}
 
@@ -79,8 +85,19 @@ public:
 private:
 	struct Program {
 		GLuint id;
-		GLuint u_transform_loc;
-		GLuint u_nor_transform_loc;
+
+		GLint u_transform_loc;
+		GLint u_nor_transform_loc;
+
+		GLint u_dir_light_direction_loc;
+		GLint u_dir_light_color_loc;
+
+		GLint u_wrap_value_loc;
+	};
+
+	struct DirectionalLight {
+		glm::vec3 direction;
+		glm::vec3 color;
 	};
 
 	bool customInit() override {
@@ -120,14 +137,32 @@ private:
 
 		glUseProgram(programs[current_program].id);
 
-		glm::mat4 transform = glm::mat4(1.0f);
-		glm::mat3 nor_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
-		transform = projection * camera.getViewMatrix() * transform;
+		glm::mat4 transform(1.0f);
 
-		glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
-			GL_FALSE, glm::value_ptr(transform));
-		glUniformMatrix3fv(programs[current_program].u_nor_transform_loc, 1,
-			GL_FALSE, glm::value_ptr(nor_transform));
+		if (programs[current_program].u_transform_loc != -1) {
+			glm::mat4 mvp = projection * camera.getViewMatrix() * transform;
+
+			glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
+				GL_FALSE, glm::value_ptr(mvp));
+		}
+
+		if (programs[current_program].u_nor_transform_loc != -1) {
+			glm::mat3 nor_transform =
+				glm::transpose(glm::inverse(glm::mat3(transform)));
+
+			glUniformMatrix3fv(programs[current_program].u_nor_transform_loc, 1,
+				GL_FALSE, glm::value_ptr(nor_transform));
+		}
+
+		if (programs[current_program].u_dir_light_direction_loc != -1)
+			glUniform3fv(programs[current_program].u_dir_light_direction_loc,
+				1, glm::value_ptr(dir_light.direction));
+
+		if (programs[current_program].u_dir_light_color_loc != -1)
+			glUniform3fv(programs[current_program].u_dir_light_color_loc,
+				1, glm::value_ptr(dir_light.color));
+
+		specificUniforms();
 
 		glBindVertexArray(device_mesh.vao_id);
 		glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, nullptr);
@@ -155,9 +190,9 @@ private:
 
 		BeginGroup();
 		RadioButton("None", &current_program, 0);
-		//RadioButton("Lambert Diffuse Lighting", &current_program, 1);
-		//RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 2);
-		//RadioButton("Phong Lighting", &current_program, 3);
+		RadioButton("Lambert Diffuse Lighting", &current_program, 1);
+		RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 2);
+		RadioButton("Phong Lighting", &current_program, 3);
 		//RadioButton("Blinn-Phong Lighting", &current_program, 4);
 		//RadioButton("Banded Lighting", &current_program, 5);
 		//RadioButton("Minnaert Lighting", &current_program, 6);
@@ -165,6 +200,23 @@ private:
 		EndGroup();
 
 		Dummy(ImVec2(0.0f, 2.0f));
+		End();
+
+		lightOptionsGUI();
+
+		/// LIGHTS
+		Begin("Directional Light");
+		Dummy(ImVec2(0.0f, 2.0f));
+
+		Separator();
+		SliderFloat("Direction X", &dir_light.direction.x, -1.0f, 1.0f);
+		SliderFloat("Direction Y", &dir_light.direction.y, -1.0f, 1.0f);
+		SliderFloat("Direction Z", &dir_light.direction.z, -1.0f, 1.0f);
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		ColorPicker4("Color", glm::value_ptr(dir_light.color));
+
 		End();
 
 		/// CAMERA
@@ -195,6 +247,35 @@ private:
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		End();
+	}
+
+	void lightOptionsGUI() {
+		using namespace ImGui;
+
+		switch (current_program) {
+			case 2:
+				Begin("Half-Lambert - Options");
+				SliderFloat("Wrap value", &half_lambert_wrap, 0.0f, 1.0f);
+				End();
+
+				break;
+
+			case 3:
+				Begin("Phong - Options");
+				End();
+
+				break;
+		}
+	}
+
+	void specificUniforms() {
+		switch (current_program) {
+			case 2:
+				assert(programs[current_program].u_wrap_value_loc != -1);
+				glUniform1f(programs[current_program].u_wrap_value_loc, half_lambert_wrap);
+
+				break;
+		}
 	}
 
 	void updateCamera(float delta_time) {
@@ -294,6 +375,14 @@ private:
 				glGetUniformLocation(programs[i].id, "u_transform");
 			programs[i].u_nor_transform_loc =
 				glGetUniformLocation(programs[i].id, "u_nor_transform");
+
+			programs[i].u_dir_light_direction_loc =
+				glGetUniformLocation(programs[i].id, "u_dir_light.direction");
+			programs[i].u_dir_light_color_loc =
+				glGetUniformLocation(programs[i].id, "u_dir_light.color");
+
+			programs[i].u_wrap_value_loc =
+				glGetUniformLocation(programs[i].id, "u_wrap_value");
 		}
 
 		return true;
@@ -321,8 +410,8 @@ private:
 
 	void createTexture() {
 		std::vector<float> texture_data {
-			0.0f, 1.0f,
-			1.0f, 0.0f
+			0.4f, 0.6f,
+			0.6f, 0.4f
 		};
 
 		glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
@@ -343,7 +432,8 @@ private:
 		std::vector<unsigned> indices;
 
 		//bool success = parseOBJ("../res/square.obj", f_buffers, indices);
-		bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
+		//bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
+		bool success = parseOBJ("../res/materialBall.obj", f_buffers, indices);
 
 		if (!success)
 			return false;
@@ -353,9 +443,10 @@ private:
 		f_buffers[2].attribute_name = "a_tex";
 
 		// Assuming all programs attrib locations are the same
+		// (Except program 0 - None)
 		// Shader must specify attrib location on layout
 		device_mesh = gl.createPackedStaticGeometry(
-			programs[current_program].id, f_buffers,
+			programs[1].id, f_buffers,
 			i_buffers, indices, success);
 
 		if (!success)
@@ -373,6 +464,9 @@ private:
 
 	Program programs[N_LIGHTING_MODELS];
 
+	/// Lighting model
+	float half_lambert_wrap = 0.5f;
+
 	/// Cube properties
 	glm::vec3 cube_pos = glm::vec3(0.0f, 0.0f, -5.0f);
 	float cube_pitch = 0.0f;
@@ -380,6 +474,9 @@ private:
 	float cube_roll = 0.0f;
 
 	size_t n_indices = 0u;
+
+	/// Lights
+	DirectionalLight dir_light;
 
 	/// Camera
 	FlyThroughCamera camera;

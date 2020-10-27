@@ -2,27 +2,24 @@
 
 FlyThroughCamera::FlyThroughCamera(
 	glm::vec3 position,
-	glm::vec3 forward,
-	glm::vec3 up,
 	float yaw,
 	float pitch,
-	float move_speed,
-	float look_speed,
-	float move_mix_factor,
-	float look_mix_factor)
+	glm::vec3 world_up)
 	:
 	position { position },
-	forward { forward },
-	up { up },
 	yaw { yaw },
 	pitch { pitch },
-	move_speed { move_speed },
-	look_speed { look_speed },
-	move_mix_factor { move_mix_factor },
-	look_mix_factor { look_mix_factor },
+	world_up { world_up },
 	new_position { position },
 	new_yaw { yaw },
-	new_pitch { pitch } {}
+	new_pitch { pitch } {
+
+	move_speed = 5.0f;
+	look_speed = 10.0f;
+	move_mix_factor = 0.9f;
+	look_mix_factor = 0.7f;
+	speed_multiplier = 1.0f;
+}
 
 glm::mat4 FlyThroughCamera::getViewMatrix() {
 	new_yaw = look_mix_factor * new_yaw + (1.0f - look_mix_factor) * yaw;
@@ -40,7 +37,7 @@ glm::mat4 FlyThroughCamera::getViewMatrix() {
 	};
 
 	forward = glm::normalize(forward);
-	right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+	right = glm::normalize(glm::cross(forward, world_up));
 	up = glm::normalize(glm::cross(right, forward));
 
 	new_position = glm::mix(position, new_position, move_mix_factor);

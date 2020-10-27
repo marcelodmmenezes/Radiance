@@ -1,15 +1,27 @@
 #version 450 core
 
+struct DirectionalLight {
+	vec3 direction;
+	vec3 color;
+};
+
 in vec3 v_nor;
 in vec2 v_tex;
 
 uniform sampler2D u_sampler;
+uniform DirectionalLight u_dir_light;
 
 out vec4 out_color;
 
 void main() {
-	out_color = texture(u_sampler, v_tex);
-	out_color.rgba = out_color.rrra;
-	out_color += vec4(v_nor.x * 0.0001, v_nor.y * 0.0001, v_tex.x * 0.0001, 1.0);
+	vec4 tex = texture(u_sampler, v_tex).rrra;
+
+	vec3 normal = normalize(v_nor);
+	vec3 light_dir = normalize(-u_dir_light.direction);
+
+	float diff = max(dot(normal, light_dir), 0.0);
+	vec4 diffuse = tex * diff * vec4(u_dir_light.color, 1.0);
+
+	out_color = diffuse;
 }
 
