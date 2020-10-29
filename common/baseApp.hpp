@@ -57,6 +57,7 @@ protected:
 
 	bool show_info;
 	bool fullscreen;
+	bool vsync = true;
 
 	OpenGLContext gl;
 	bool gl_wireframe = false;

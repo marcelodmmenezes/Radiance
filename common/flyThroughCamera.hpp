@@ -33,6 +33,10 @@ public:
 	float move_speed;
 	float look_speed;
 
+	glm::vec3 new_position;
+	float new_yaw;
+	float new_pitch;
+
 private:
 	glm::vec3 world_up;
 
@@ -43,10 +47,6 @@ private:
 	float move_mix_factor;
 	float look_mix_factor;
 	float speed_multiplier;
-
-	glm::vec3 new_position;
-	float new_yaw;
-	float new_pitch;
 };
 
 #endif // FLY_THROUGH_CAMERA_HPP

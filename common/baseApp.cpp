@@ -12,6 +12,7 @@ bool BaseApplication::init() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	window = glfwCreateWindow(window_width,
 		window_height, title.c_str(), nullptr, nullptr);
@@ -36,6 +37,8 @@ bool BaseApplication::init() {
 	glfwSetWindowUserPointer(window, this);
 
 	setFullscreen(fullscreen);
+
+	glfwSwapInterval(1); // Vsync
 
 	glfwMakeContextCurrent(window);
 	
@@ -85,6 +88,7 @@ void BaseApplication::run() {
 
 	while (!glfwWindowShouldClose(window)) {
 		bool fs = fullscreen;
+		bool vs = vsync;
 		bool wireframe = gl_wireframe;
 		float line_width = gl_line_width;
 
@@ -105,6 +109,7 @@ void BaseApplication::run() {
 				close();
 
 			ImGui::Checkbox("Fullscreen", &fs);
+			ImGui::Checkbox("V Sync", &vs);
 			ImGui::Checkbox("Wireframe", &wireframe);
 			ImGui::SliderFloat("Line width", &line_width, 0.5f, 10.0f);
 			ImGui::Dummy(ImVec2(0.0f, 5.0f));
@@ -126,6 +131,11 @@ void BaseApplication::run() {
 
 		if (fs != fullscreen)
 			setFullscreen(fs);
+
+		if (vs != vsync) {
+			glfwSwapInterval(vs);
+			vsync = vs;
+		}
 
 		if (wireframe != gl_wireframe) {
 			gl_wireframe = wireframe;

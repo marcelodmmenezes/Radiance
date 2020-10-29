@@ -86,13 +86,22 @@ private:
 	struct Program {
 		GLuint id;
 
-		GLint u_transform_loc;
+		GLint u_model_matrix_loc;
+		GLint u_view_matrix_loc;
+		GLint u_projection_matrix_loc;
 		GLint u_nor_transform_loc;
 
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
 
 		GLint u_wrap_value_loc;
+
+		GLint u_view_pos_loc;
+		GLint u_shininess_loc;
+
+		GLint u_light_steps_loc;
+
+		GLint u_roughness_loc;
 	};
 
 	struct DirectionalLight {
@@ -137,18 +146,21 @@ private:
 
 		glUseProgram(programs[current_program].id);
 
-		glm::mat4 transform(1.0f);
+		if (programs[current_program].u_model_matrix_loc != -1)
+			glUniformMatrix4fv(programs[current_program].u_model_matrix_loc,
+				1, GL_FALSE, glm::value_ptr(model_matrix));
 
-		if (programs[current_program].u_transform_loc != -1) {
-			glm::mat4 mvp = projection * camera.getViewMatrix() * transform;
+		if (programs[current_program].u_view_matrix_loc != -1)
+			glUniformMatrix4fv(programs[current_program].u_view_matrix_loc,
+				1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 
-			glUniformMatrix4fv(programs[current_program].u_transform_loc, 1,
-				GL_FALSE, glm::value_ptr(mvp));
-		}
+		if (programs[current_program].u_projection_matrix_loc != -1)
+			glUniformMatrix4fv(programs[current_program].u_projection_matrix_loc,
+				1, GL_FALSE, glm::value_ptr(projection));
 
 		if (programs[current_program].u_nor_transform_loc != -1) {
 			glm::mat3 nor_transform =
-				glm::transpose(glm::inverse(glm::mat3(transform)));
+				glm::mat3(glm::transpose(glm::inverse(model_matrix)));
 
 			glUniformMatrix3fv(programs[current_program].u_nor_transform_loc, 1,
 				GL_FALSE, glm::value_ptr(nor_transform));
@@ -193,10 +205,10 @@ private:
 		RadioButton("Lambert Diffuse Lighting", &current_program, 1);
 		RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 2);
 		RadioButton("Phong Lighting", &current_program, 3);
-		//RadioButton("Blinn-Phong Lighting", &current_program, 4);
-		//RadioButton("Banded Lighting", &current_program, 5);
-		//RadioButton("Minnaert Lighting", &current_program, 6);
-		//RadioButton("Oren-Nayer Lighting", &current_program, 6);
+		RadioButton("Blinn-Phong Lighting", &current_program, 4);
+		RadioButton("Banded Lighting", &current_program, 5);
+		RadioButton("Minnaert Lighting", &current_program, 6);
+		//RadioButton("Oren-Nayer Lighting", &current_program, 7);
 		EndGroup();
 
 		Dummy(ImVec2(0.0f, 2.0f));
@@ -262,6 +274,28 @@ private:
 
 			case 3:
 				Begin("Phong - Options");
+				SliderFloat("Material shineness", &material_shineness, 1.0f, 64.0f);
+				End();
+
+				break;
+
+			case 4:
+				Begin("Blinn Phong - Options");
+				SliderFloat("Material shineness", &material_shineness, 1.0f, 64.0f);
+				End();
+
+				break;
+
+			case 5:
+				Begin("Banded - Options");
+				SliderFloat("Light Steps", &light_steps, 1.0f, 512.0f);
+				End();
+
+				break;
+
+			case 6:
+				Begin("Minnaert - Options");
+				SliderFloat("Material Roughness", &roughness, -1.0f, 1.0f);
 				End();
 
 				break;
@@ -272,7 +306,34 @@ private:
 		switch (current_program) {
 			case 2:
 				assert(programs[current_program].u_wrap_value_loc != -1);
+
 				glUniform1f(programs[current_program].u_wrap_value_loc, half_lambert_wrap);
+
+				break;
+
+			case 3:
+			case 4:
+				assert(programs[current_program].u_view_pos_loc != -1);
+				assert(programs[current_program].u_shininess_loc != -1);
+
+				glUniform3fv(programs[current_program].u_view_pos_loc,
+					1, glm::value_ptr(camera.new_position));
+				glUniform1f(programs[current_program].u_shininess_loc,
+					material_shineness);
+
+				break;
+
+			case 5:
+				assert(programs[current_program].u_light_steps_loc != -1);
+
+				glUniform1f(programs[current_program].u_light_steps_loc, light_steps);
+
+				break;
+
+			case 6:
+				assert(programs[current_program].u_roughness_loc != -1);
+
+				glUniform1f(programs[current_program].u_roughness_loc, roughness);
 
 				break;
 		}
@@ -371,8 +432,12 @@ private:
 			else
 				std::cout << "SUCCESS\n";
 
-			programs[i].u_transform_loc =
-				glGetUniformLocation(programs[i].id, "u_transform");
+			programs[i].u_model_matrix_loc =
+				glGetUniformLocation(programs[i].id, "u_model_matrix");
+			programs[i].u_view_matrix_loc =
+				glGetUniformLocation(programs[i].id, "u_view_matrix");
+			programs[i].u_projection_matrix_loc =
+				glGetUniformLocation(programs[i].id, "u_projection_matrix");
 			programs[i].u_nor_transform_loc =
 				glGetUniformLocation(programs[i].id, "u_nor_transform");
 
@@ -383,6 +448,18 @@ private:
 
 			programs[i].u_wrap_value_loc =
 				glGetUniformLocation(programs[i].id, "u_wrap_value");
+
+			programs[i].u_view_pos_loc =
+				glGetUniformLocation(programs[i].id, "u_view_pos");
+
+			programs[i].u_shininess_loc =
+				glGetUniformLocation(programs[i].id, "u_shininess");
+
+			programs[i].u_light_steps_loc =
+				glGetUniformLocation(programs[i].id, "u_light_steps");
+
+			programs[i].u_roughness_loc =
+				glGetUniformLocation(programs[i].id, "u_roughness");
 		}
 
 		return true;
@@ -466,12 +543,18 @@ private:
 
 	/// Lighting model
 	float half_lambert_wrap = 0.5f;
+	float material_shineness = 32.0f;
+	float light_steps = 64.0f;
+	float roughness = 0.0f;
 
 	/// Cube properties
 	glm::vec3 cube_pos = glm::vec3(0.0f, 0.0f, -5.0f);
+
 	float cube_pitch = 0.0f;
 	float cube_yaw = 0.0f;
 	float cube_roll = 0.0f;
+
+	glm::mat4 model_matrix = glm::mat4(1.0f);
 
 	size_t n_indices = 0u;
 

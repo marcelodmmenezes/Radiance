@@ -17,10 +17,10 @@ void main() {
 	vec4 tex = texture(u_sampler, v_tex).rrra;
 
 	vec3 normal = normalize(v_nor);
-	vec3 light_dir = normalize(-u_dir_light.direction);
+	vec3 neg_light_dir = normalize(-u_dir_light.direction);
 
-	float diff = max(dot(normal, light_dir), 0.0);
-	vec4 diffuse = tex * diff * vec4(u_dir_light.color, 1.0);
+	float l_dot_n = max(dot(neg_light_dir, normal), 0.0);
+	vec4 diffuse = tex * l_dot_n * vec4(u_dir_light.color, 1.0);
 
 	out_color = diffuse;
 }

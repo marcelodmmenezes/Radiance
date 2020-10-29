@@ -9,21 +9,21 @@ FlyThroughCamera::FlyThroughCamera(
 	position { position },
 	yaw { yaw },
 	pitch { pitch },
-	world_up { world_up },
 	new_position { position },
 	new_yaw { yaw },
-	new_pitch { pitch } {
+	new_pitch { pitch },
+	world_up { world_up } {
 
 	move_speed = 5.0f;
 	look_speed = 10.0f;
 	move_mix_factor = 0.9f;
-	look_mix_factor = 0.7f;
+	look_mix_factor = 0.8f;
 	speed_multiplier = 1.0f;
 }
 
 glm::mat4 FlyThroughCamera::getViewMatrix() {
-	new_yaw = look_mix_factor * new_yaw + (1.0f - look_mix_factor) * yaw;
-	new_pitch = look_mix_factor * new_pitch + (1.0f - look_mix_factor) * pitch;
+	new_yaw = (1.0f - look_mix_factor) * yaw + look_mix_factor * new_yaw;
+	new_pitch = (1.0f - look_mix_factor) * pitch + look_mix_factor * new_pitch;
 
 	if (new_pitch > 89.0f)
 		new_pitch = 89.0f;
