@@ -14,14 +14,14 @@ uniform DirectionalLight u_dir_light;
 out vec4 out_color;
 
 void main() {
-	vec4 tex = texture(u_sampler, v_tex).rrra;
+	vec3 tex = texture(u_sampler, v_tex).rrr;
 
 	vec3 normal = normalize(v_nor);
 	vec3 neg_light_dir = normalize(-u_dir_light.direction);
 
 	float l_dot_n = max(dot(neg_light_dir, normal), 0.0);
-	vec4 diffuse = tex * l_dot_n * vec4(u_dir_light.color, 1.0);
+	vec3 diffuse = tex * l_dot_n * u_dir_light.color;
 
-	out_color = diffuse;
+	out_color = vec4(diffuse, 1.0);
 }
 

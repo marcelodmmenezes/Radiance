@@ -11,9 +11,14 @@ uniform mat3 u_nor_transform;
 
 out vec3 v_nor;
 out vec2 v_tex;
+out vec3 v_frag_pos;
 
 void main() {
-	gl_Position = u_projection_matrix * u_view_matrix * u_model_matrix * vec4(a_pos, 1.0);
+	vec4 world_position = u_model_matrix * vec4(a_pos, 1.0);
+	gl_Position = u_projection_matrix * u_view_matrix * world_position;
+
+	v_frag_pos = vec3(world_position);
+
 	v_nor = u_nor_transform * a_nor;
 	v_tex = a_tex;
 }

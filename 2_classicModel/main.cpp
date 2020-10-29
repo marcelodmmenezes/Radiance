@@ -208,7 +208,7 @@ private:
 		RadioButton("Blinn-Phong Lighting", &current_program, 4);
 		RadioButton("Banded Lighting", &current_program, 5);
 		RadioButton("Minnaert Lighting", &current_program, 6);
-		//RadioButton("Oren-Nayer Lighting", &current_program, 7);
+		RadioButton("Oren-Nayar Lighting", &current_program, 7);
 		EndGroup();
 
 		Dummy(ImVec2(0.0f, 2.0f));
@@ -280,7 +280,7 @@ private:
 				break;
 
 			case 4:
-				Begin("Blinn Phong - Options");
+				Begin("Blinn-Phong - Options");
 				SliderFloat("Material shineness", &material_shineness, 1.0f, 64.0f);
 				End();
 
@@ -295,10 +295,15 @@ private:
 
 			case 6:
 				Begin("Minnaert - Options");
-				SliderFloat("Material Roughness", &roughness, -1.0f, 1.0f);
+				SliderFloat("Material Roughness", &roughness, 0.0f, 1.0f);
 				End();
 
 				break;
+
+			case 7:
+				Begin("Oren-Nayar - Options");
+				SliderFloat("Material Roughness", &roughness, 0.0f, 1.0f);
+				End();
 		}
 	}
 
@@ -331,8 +336,12 @@ private:
 				break;
 
 			case 6:
+			case 7:
+				assert(programs[current_program].u_view_pos_loc != -1);
 				assert(programs[current_program].u_roughness_loc != -1);
 
+				glUniform3fv(programs[current_program].u_view_pos_loc,
+					1, glm::value_ptr(camera.new_position));
 				glUniform1f(programs[current_program].u_roughness_loc, roughness);
 
 				break;
@@ -395,8 +404,8 @@ private:
 				"shaders/minnaert/fs.glsl",
 			},
 			{
-				"shaders/oren_nayer/vs.glsl",
-				"shaders/oren_nayer/fs.glsl",
+				"shaders/oren_nayar/vs.glsl",
+				"shaders/oren_nayar/fs.glsl",
 			}
 		};
 

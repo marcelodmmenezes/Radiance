@@ -17,7 +17,7 @@ uniform float u_roughness;
 out vec4 out_color;
 
 void main() {
-	vec4 tex = texture(u_sampler, v_tex).rrra;
+	vec3 tex = texture(u_sampler, v_tex).rrr;
 
 	vec3 normal = normalize(v_nor);
 	vec3 neg_light_dir = normalize(-u_dir_light.direction);
@@ -26,10 +26,10 @@ void main() {
 	float l_dot_n = max(dot(neg_light_dir, normal), 0.0);
 	float v_dot_n = max(dot(view_dir, normal), 0.0);
 
-	float minnaert = clamp(l_dot_n * pow(l_dot_n * v_dot_n, u_roughness), 0.0, 1.0);
+	float minnaert = l_dot_n * pow(l_dot_n * v_dot_n, u_roughness);
 
-	vec4 diffuse = tex * minnaert * vec4(u_dir_light.color, 1.0);
+	vec3 diffuse = tex * minnaert * u_dir_light.color;
 
-	out_color = diffuse;
+	out_color = vec4(diffuse, 1.0);
 }
 

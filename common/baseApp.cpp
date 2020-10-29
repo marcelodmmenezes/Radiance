@@ -38,7 +38,8 @@ bool BaseApplication::init() {
 
 	setFullscreen(fullscreen);
 
-	glfwSwapInterval(1); // Vsync
+	glfwSwapInterval(0); // Vsync
+	glfwSwapInterval(1); // Disabling and enabling fixes glfw stuttering
 
 	glfwMakeContextCurrent(window);
 	
