@@ -28,7 +28,7 @@ void main() {
 	vec3 view_dir = normalize(u_view_pos - v_frag_pos);
 	vec3 half_dir = normalize(view_dir + neg_light_dir);
 	float spec = pow(max(dot(half_dir, normal), 0.0), u_shininess);
-	vec4 specular = vec4(spec, spec, spec, 1.0);
+	vec4 specular = vec4(spec, spec, spec, 1.0) * vec4(u_dir_light.color, 1.0);
 
 	out_color = diffuse + specular;
 }
