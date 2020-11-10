@@ -70,14 +70,14 @@ private:
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
-		if (gl.checkErrors(__FILE__, __LINE__))
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 			return false;
 
 		return true;
 	}
 
 	bool customLoop(double delta_time) override {
-		if (gl.checkErrors(__FILE__, __LINE__))
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 			return false;
 
 		buildGUI();
