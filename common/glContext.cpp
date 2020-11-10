@@ -2,28 +2,6 @@
 
 #include <iostream>
 
-void OpenGLContext::setWireframe(bool state) {
-	glPolygonMode(GL_FRONT_AND_BACK, state ? GL_LINE : GL_FILL);
-}
-
-void OpenGLContext::setLineWidth(float width) {
-	glLineWidth(width);
-}
-
-bool OpenGLContext::load(GLADloadproc loader) {
-	if (!gladLoadGLLoader(loader))
-		return false;
-
-	std::cout << "OpenGL Info:\n"
-		<< "\nGraphics Card Vendor: " << glGetString(GL_VENDOR)
-		<< "\nRenderer:             " << glGetString(GL_RENDERER)
-		<< "\nOpenGL version:       " << glGetString(GL_VERSION)
-		<< "\nGLSL version:         " << glGetString(GL_SHADING_LANGUAGE_VERSION)
-		<< "\n\n";
-
-	return true;
-}
-
 bool OpenGLContext::checkErrors(std::string const& file, int line) {
 	GLenum error;
 	bool has_error = false;
@@ -53,6 +31,28 @@ bool OpenGLContext::checkErrors(std::string const& file, int line) {
 	}
 
 	return has_error;
+}
+
+void OpenGLContext::setWireframe(bool state) {
+	glPolygonMode(GL_FRONT_AND_BACK, state ? GL_LINE : GL_FILL);
+}
+
+void OpenGLContext::setLineWidth(float width) {
+	glLineWidth(width);
+}
+
+bool OpenGLContext::load(GLADloadproc loader) {
+	if (!gladLoadGLLoader(loader))
+		return false;
+
+	std::cout << "OpenGL Info:\n"
+		<< "\nGraphics Card Vendor: " << glGetString(GL_VENDOR)
+		<< "\nRenderer:             " << glGetString(GL_RENDERER)
+		<< "\nOpenGL version:       " << glGetString(GL_VERSION)
+		<< "\nGLSL version:         " << glGetString(GL_SHADING_LANGUAGE_VERSION)
+		<< "\n\n";
+
+	return true;
 }
 
 void OpenGLContext::enable(GLenum capability) {

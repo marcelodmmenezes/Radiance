@@ -1,6 +1,7 @@
 #include "../common/baseApp.hpp"
 #include "../common/flyThroughCamera.hpp"
 #include "../common/objParser.hpp"
+#include "../common/texture.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -91,6 +92,8 @@ private:
 		GLint u_projection_matrix_loc;
 		GLint u_nor_transform_loc;
 
+		GLint u_sampler_loc;
+
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
 
@@ -129,14 +132,14 @@ private:
 
 		gl.enable(GL_DEPTH_TEST);
 
-		if (gl.checkErrors(__FILE__, __LINE__))
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 			return false;
 
 		return true;
 	}
 
 	bool customLoop(double delta_time) override {
-		if (gl.checkErrors(__FILE__, __LINE__))
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 			return false;
 
 		buildGUI();
@@ -166,6 +169,9 @@ private:
 				GL_FALSE, glm::value_ptr(nor_transform));
 		}
 
+		if (programs[current_program].u_sampler_loc != -1)
+			glUniform1i(programs[current_program].u_sampler_loc, 0);
+
 		if (programs[current_program].u_dir_light_direction_loc != -1)
 			glUniform3fv(programs[current_program].u_dir_light_direction_loc,
 				1, glm::value_ptr(dir_light.direction));
@@ -177,7 +183,7 @@ private:
 		specificUniforms();
 
 		glBindVertexArray(device_mesh.vao_id);
-		glDrawElements(GL_TRIANGLES, n_indices, GL_UNSIGNED_INT, nullptr);
+		glDrawElements(GL_TRIANGLES, device_mesh.n_indices, GL_UNSIGNED_INT, nullptr);
 
 		return true;
 	}
@@ -187,8 +193,7 @@ private:
 			if (glIsProgram(programs[i].id))
 				glDeleteProgram(programs[i].id);
 
-		if (glIsTexture(texture_id))
-			glDeleteTextures(1, &texture_id);
+		texture.destroy();
 
 		gl.destroyGeometry(device_mesh);
 	}
@@ -450,6 +455,9 @@ private:
 			programs[i].u_nor_transform_loc =
 				glGetUniformLocation(programs[i].id, "u_nor_transform");
 
+			programs[i].u_sampler_loc =
+				glGetUniformLocation(programs[i].id, "u_sampler");
+
 			programs[i].u_dir_light_direction_loc =
 				glGetUniformLocation(programs[i].id, "u_dir_light.direction");
 			programs[i].u_dir_light_color_loc =
@@ -495,21 +503,11 @@ private:
 	}
 
 	void createTexture() {
-		std::vector<float> texture_data {
-			0.4f, 0.6f,
-			0.6f, 0.4f
-		};
+		texture = Texture2D("../res/materialBallLambert.png", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			//GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR);
 
-		glCreateTextures(GL_TEXTURE_2D, 1, &texture_id);
-
-		glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-		glTextureStorage2D(texture_id, 1, GL_R32F, 2, 2);
-		glTextureSubImage2D(texture_id, 0, 0, 0, 2, 2,
-			GL_RED, GL_FLOAT, texture_data.data());
-
-		glBindTextureUnit(0, texture_id);
+		texture.bind(0);
 	}
 
 	bool createGeometry() {
@@ -538,16 +536,10 @@ private:
 		if (!success)
 			return false;
 
-		n_indices = indices.size();
-
 		return true;
 	}
 
-	/// OpenGL handles
-	DeviceMesh device_mesh;
-
-	GLuint texture_id;
-
+	/// Programs
 	Program programs[N_LIGHTING_MODELS];
 
 	/// Lighting model
@@ -556,16 +548,10 @@ private:
 	float light_steps = 64.0f;
 	float roughness = 0.0f;
 
-	/// Cube properties
-	glm::vec3 cube_pos = glm::vec3(0.0f, 0.0f, -5.0f);
-
-	float cube_pitch = 0.0f;
-	float cube_yaw = 0.0f;
-	float cube_roll = 0.0f;
-
+	/// Object properties
+	DeviceMesh device_mesh;
 	glm::mat4 model_matrix = glm::mat4(1.0f);
-
-	size_t n_indices = 0u;
+	Texture2D texture;
 
 	/// Lights
 	DirectionalLight dir_light;

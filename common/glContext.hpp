@@ -35,6 +35,8 @@ struct DeviceMesh {
 
 class OpenGLContext {
 public:
+	static bool checkErrors(std::string const& file, int line);
+
 	OpenGLContext() {}
 	~OpenGLContext() {}
 
@@ -42,7 +44,6 @@ public:
 	void setLineWidth(float width);
 
 	bool load(GLADloadproc loader);
-	bool checkErrors(std::string const& file, int line);
 
 	void enable(GLenum capability);
 	void disable(GLenum capability);

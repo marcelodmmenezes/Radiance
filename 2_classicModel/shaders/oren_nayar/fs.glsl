@@ -19,7 +19,7 @@ uniform float u_roughness;
 out vec4 out_color;
 
 void main() {
-	vec3 tex = texture(u_sampler, v_tex).rrr;
+	vec3 tex = texture(u_sampler, v_tex).rgb;
 
 	vec3 normal = normalize(v_nor);
 	vec3 neg_light_dir = normalize(-u_dir_light.direction);

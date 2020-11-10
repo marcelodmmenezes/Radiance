@@ -7,6 +7,6 @@ uniform sampler2D u_sampler;
 out vec4 out_color;
 
 void main() {
-	out_color = texture(u_sampler, v_tex).rrra;
+	out_color = texture(u_sampler, v_tex);
 }
 

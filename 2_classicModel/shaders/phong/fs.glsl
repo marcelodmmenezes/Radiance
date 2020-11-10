@@ -17,19 +17,23 @@ uniform float u_shininess;
 out vec4 out_color;
 
 void main() {
-	vec4 tex = texture(u_sampler, v_tex).rrra;
+	vec3 tex = texture(u_sampler, v_tex).rgb;
 
 	vec3 normal = normalize(v_nor);
 	vec3 neg_light_dir = normalize(-u_dir_light.direction);
 
 	float l_dot_n = max(dot(neg_light_dir, normal), 0.0);
-	vec4 diffuse = tex * l_dot_n * vec4(u_dir_light.color, 1.0);
+	vec3 diffuse = tex * l_dot_n * u_dir_light.color;
 
 	vec3 view_dir = normalize(u_view_pos - v_frag_pos);
 	vec3 reflect_dir = reflect(-neg_light_dir, normal);
-	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), u_shininess);
-	vec4 specular = vec4(spec, spec, spec, 1.0) * vec4(u_dir_light.color, 1.0);
 
-	out_color = diffuse + specular;
+	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), u_shininess);
+
+	// Using diffuse as spec map
+	float factor = (tex.r + tex.g + tex.b) / 3.0;
+	vec3 specular = vec3(spec, spec, spec) * u_dir_light.color;
+
+	out_color = vec4(diffuse + specular, 1.0);
 }
 
