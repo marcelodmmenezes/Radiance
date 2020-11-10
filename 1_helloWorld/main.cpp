@@ -445,7 +445,7 @@ void windowResize(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
-	Application app("Hello, World", WINDOW_WIDTH, WINDOW_HEIGHT, true, true);
+	Application app("Hello, World", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init()) {
 		app.run();

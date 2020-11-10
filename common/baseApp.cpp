@@ -38,9 +38,6 @@ bool BaseApplication::init() {
 
 	setFullscreen(fullscreen);
 
-	glfwSwapInterval(0); // Vsync
-	glfwSwapInterval(1); // Disabling and enabling fixes glfw stuttering
-
 	glfwMakeContextCurrent(window);
 	
 	if (!gl.load((GLADloadproc)glfwGetProcAddress)) {
@@ -51,6 +48,9 @@ bool BaseApplication::init() {
 
 		return false;
 	}
+
+	glfwSwapInterval(0); // Vsync
+	glfwSwapInterval(1); // Disabling and enabling fixes glfw stuttering
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
