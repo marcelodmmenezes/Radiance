@@ -17,4 +17,3 @@ void main() {
 	v_nor = u_nor_transform * a_nor;
 	v_tex = a_tex;
 }
-

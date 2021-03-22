@@ -13,9 +13,9 @@
 
 #define N_LIGHTING_MODELS 8
 
-void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
-void onMouseButton(GLFWwindow* window, int button, int action, int mods);
+void onMouseButton(GLFWwindow* window, int button, int action, int);
 void windowResize(GLFWwindow* window, int width, int height);
 
 class Application : public BaseApplication {
@@ -415,8 +415,8 @@ private:
 		};
 
 		for (int i = 0; i < N_LIGHTING_MODELS; ++i) {
-			std::ifstream vs_file(files[i][0], std::ios::ate);
-			std::ifstream fs_file(files[i][1], std::ios::ate);
+			std::ifstream vs_file(files[i][0]);
+			std::ifstream fs_file(files[i][1]);
 
 			if (!vs_file) {
 				std::cerr << "ERROR: Could not open " << files[i][0] << '\n';
@@ -433,9 +433,6 @@ private:
 				<< " ... ";
 
 			readShader(vs_file, fs_file, shaders[i]);
-
-			fs_file.close();
-			vs_file.close();
 
 			bool success;
 
@@ -489,17 +486,18 @@ private:
 
 		shaders.resize(2);
 
-		int vs_size = vs.tellg();
 		shaders[0].type = GL_VERTEX_SHADER;
-		shaders[0].source.resize(vs_size);
-		vs.seekg(0, std::ios::beg);
-		vs.read(&shaders[0].source[0], vs_size);
+		readFile(vs, shaders[0]);
 
-		int fs_size = fs.tellg();
 		shaders[1].type = GL_FRAGMENT_SHADER;
-		shaders[1].source.resize(fs_size); 
-		fs.seekg(0, std::ios::beg);
-		fs.read(&shaders[1].source[0], fs_size);
+		readFile(fs, shaders[1]);
+	}
+
+	void readFile(std::ifstream& stream, ShaderInfo& shader_info) {
+		std::string line;
+
+		while (std::getline(stream, line))
+			shader_info.source += line + "\n";
 	}
 
 	void createTexture() {
@@ -578,7 +576,7 @@ private:
 	glm::mat4 projection;
 };
 
-void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void onKey(GLFWwindow* window, int key, int, int action, int mods) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->fastCamera((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT);
@@ -619,7 +617,7 @@ void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
 	app->updateMousePos(xpos, ypos);
 }
 
-void onMouseButton(GLFWwindow* window, int button, int action, int mods) {
+void onMouseButton(GLFWwindow* window, int button, int action, int) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {

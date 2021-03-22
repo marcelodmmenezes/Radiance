@@ -6,8 +6,8 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
-void onMouseScroll(GLFWwindow* window, double x_offset, double y_offset);
+void onKey(GLFWwindow* window, int key, int, int action, int);
+void onMouseScroll(GLFWwindow* window, double, double y_offset);
 void windowResize(GLFWwindow* window, int width, int height);
 
 class Application : public BaseApplication {
@@ -404,7 +404,7 @@ private:
 	glm::mat4 projection;
 };
 
-void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void onKey(GLFWwindow* window, int key, int, int action, int) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	switch (key) {
@@ -429,7 +429,7 @@ void onKey(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	}
 }
 
-void onMouseScroll(GLFWwindow* window, double x_offset, double y_offset) {
+void onMouseScroll(GLFWwindow* window, double, double y_offset) {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->moveZ(y_offset);

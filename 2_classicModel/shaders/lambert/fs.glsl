@@ -24,4 +24,3 @@ void main() {
 
 	out_color = vec4(diffuse, 1.0);
 }
-
