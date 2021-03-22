@@ -1,6 +1,7 @@
 #version 450 core
 
-struct DirectionalLight {
+struct DirectionalLight
+{
 	vec3 direction;
 	vec3 color;
 };
@@ -16,7 +17,8 @@ uniform float u_roughness;
 
 out vec4 out_color;
 
-void main() {
+void main()
+{
 	vec3 tex = texture(u_sampler, v_tex).rgb;
 
 	vec3 normal = normalize(v_nor);

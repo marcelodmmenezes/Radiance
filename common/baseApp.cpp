@@ -2,8 +2,10 @@
 
 #include <iostream>
 
-bool BaseApplication::init() {
-	if (!glfwInit()) {
+bool BaseApplication::init()
+{
+	if (!glfwInit())
+	{
 		std::cerr << "ERROR: Could not initialize GLFW\n";
 
 		return false;
@@ -17,7 +19,8 @@ bool BaseApplication::init() {
 	window = glfwCreateWindow(window_width,
 		window_height, title.c_str(), nullptr, nullptr);
 
-	if (!window) {
+	if (!window)
+	{
 		std::cerr << "ERROR: Could not create GLFW window\n";
 
 		glfwTerminate();
@@ -25,7 +28,8 @@ bool BaseApplication::init() {
 		return false;
 	}
 
-	if (!centerWindow()) {
+	if (!centerWindow())
+	{
 		std::cerr << "ERROR: Could not get window properties\n";
 
 		glfwDestroyWindow(window);
@@ -40,7 +44,8 @@ bool BaseApplication::init() {
 
 	glfwMakeContextCurrent(window);
 	
-	if (!gl.load((GLADloadproc)glfwGetProcAddress)) {
+	if (!gl.load((GLADloadproc)glfwGetProcAddress))
+	{
 		std::cerr << "ERROR: Could not initialize GLAD\n";
 
 		glfwDestroyWindow(window);
@@ -58,7 +63,8 @@ bool BaseApplication::init() {
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 450 core");
 
-	if (!customInit()) {
+	if (!customInit())
+	{
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		ImGui::DestroyContext();
@@ -69,8 +75,10 @@ bool BaseApplication::init() {
 	return initialized = true;
 }
 
-void BaseApplication::destroy() {
-	if (initialized) {
+void BaseApplication::destroy()
+{
+	if (initialized)
+	{
 		customDestroy();
 
 		ImGui_ImplOpenGL3_Shutdown();
@@ -84,10 +92,12 @@ void BaseApplication::destroy() {
 	}
 }
 
-void BaseApplication::run() {
+void BaseApplication::run()
+{
 	double clock_now, clock_before = glfwGetTime(), delta_time;
 
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(window))
+	{
 		bool fs = fullscreen;
 		bool vs = vsync;
 		bool wireframe = gl_wireframe;
@@ -103,11 +113,14 @@ void BaseApplication::run() {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		if (show_info) {
+		if (show_info)
+		{
 			ImGui::Begin(title.c_str());
 
 			if (ImGui::Button("Close"))
+			{
 				close();
+			}
 
 			ImGui::Checkbox("Fullscreen", &fs);
 			ImGui::Checkbox("V Sync", &vs);
@@ -123,7 +136,9 @@ void BaseApplication::run() {
 		}
 
 		if (!customLoop(delta_time))
+		{
 			close();
+		}
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -131,43 +146,55 @@ void BaseApplication::run() {
 		glfwSwapBuffers(window);
 
 		if (fs != fullscreen)
+		{
 			setFullscreen(fs);
+		}
 
-		if (vs != vsync) {
+		if (vs != vsync)
+		{
 			glfwSwapInterval(vs);
 			vsync = vs;
 		}
 
-		if (wireframe != gl_wireframe) {
+		if (wireframe != gl_wireframe)
+		{
 			gl_wireframe = wireframe;
 			gl.setWireframe(gl_wireframe);
 		}
 
-		if (line_width != gl_line_width) {
+		if (line_width != gl_line_width)
+		{
 			gl_line_width = line_width;
 			gl.setLineWidth(gl_line_width);
 		}
 	}
 }
 
-void BaseApplication::close() {
+void BaseApplication::close()
+{
 	glfwSetWindowShouldClose(window, 1);
 }
 
-void BaseApplication::showInfo(bool show) { 
+void BaseApplication::showInfo(bool show)
+{ 
 	show_info = show;
 }
 
-bool BaseApplication::centerWindow() {
+bool BaseApplication::centerWindow()
+{
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
 	if (!monitor)
+	{
 		return false;
+	}
 
 	GLFWvidmode const* mode = glfwGetVideoMode(monitor);
 
 	if (!mode)
+	{
 		return false;
+	}
 
 	int monitor_x, monitor_y;
 	glfwGetMonitorPos(monitor, &monitor_x, &monitor_y);
@@ -178,22 +205,26 @@ bool BaseApplication::centerWindow() {
 	return true;
 }
 
-void BaseApplication::setWindowSize(int width, int height) {
+void BaseApplication::setWindowSize(int width, int height)
+{
 	window_width = width;
 	window_height = height;
 
 	glfwSetWindowSize(window, width, height);
 }
 
-int BaseApplication::getWindowWidth() {
+int BaseApplication::getWindowWidth()
+{
 	return window_width;
 }
 
-int BaseApplication::getWindowHeight() {
+int BaseApplication::getWindowHeight()
+{
 	return window_height;
 }
 
-void BaseApplication::setFullscreen(bool fs) {
+void BaseApplication::setFullscreen(bool fs)
+{
 	fullscreen = fs;
 
 	int x, y;
@@ -202,25 +233,31 @@ void BaseApplication::setFullscreen(bool fs) {
 
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-	if (!monitor) {
+	if (!monitor)
+	{
 		std::cerr << "ERROR: Could not get primary monitor\n";
 		abort();
 	}
 
 	GLFWvidmode const* mode = glfwGetVideoMode(monitor);
 
-	if (!mode) {
+	if (!mode)
+	{
 		std::cerr << "ERROR: Could not get video mode\n";
 		abort();
 	}
 
 	if (fullscreen)
+	{
 		glfwSetWindowMonitor(window, monitor,
 			0, 0, mode->width, mode->height, 0);
+	}
 	else
+	{
 		glfwSetWindowMonitor(window, nullptr,
 			x + (mode->width - window_width) / 2,
 			y + (mode->height - window_height) / 2,
 			window_width, window_height, 0);
+	}
 }
 

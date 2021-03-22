@@ -18,7 +18,8 @@ void onMouseMove(GLFWwindow* window, double xpos, double ypos);
 void onMouseButton(GLFWwindow* window, int button, int action, int);
 void windowResize(GLFWwindow* window, int width, int height);
 
-class Application : public BaseApplication {
+class Application : public BaseApplication
+{
 public:
 	Application(
 		std::string const& title = "Application",
@@ -32,59 +33,71 @@ public:
 			window_width,
 			window_height,
 			show_info,
-			fullscreen) {
-
+			fullscreen) 
+	{
 		dir_light.direction = glm::vec3(-1.0f, -1.0f, -1.0f);
 		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		camera = FlyThroughCamera(glm::vec3(-3.0f, 3.0f, 3.0f), -45.0f, -30.0f);
 	}
 
-	~Application() {}
+	~Application()
+	{}
 
-	void moveForward(bool state) {
+	void moveForward(bool state)
+	{
 		forward = state;
 	}
 
-	void moveBackward(bool state) {
+	void moveBackward(bool state)
+	{
 		backward = state;
 	}
 
-	void moveLeft(bool state) {
+	void moveLeft(bool state)
+	{
 		left = state;
 	}
 
-	void moveRight(bool state) {
+	void moveRight(bool state)
+	{
 		right = state;
 	}
 
-	void moveUp(bool state) {
+	void moveUp(bool state)
+	{
 		up = state;
 	}
 
-	void moveDown(bool state) {
+	void moveDown(bool state)
+	{
 		down = state;
 	}
 
-	void updateMousePos(double x, double y) {
+	void updateMousePos(double x, double y)
+	{
 		mouse_x = x;
 		mouse_y = y;
 	}
 
-	void mouseGrab(bool state) {
+	void mouseGrab(bool state)
+	{
 		mouse_grab = state;
 	}
 
-	void fastCamera(bool fast) {
+	void fastCamera(bool fast)
+	{
 		camera.fast(fast);
 	}
 
-	void setProjection(glm::mat4&& proj) {
+	void setProjection(glm::mat4&& proj)
+	{
 		projection = proj;
 	}
 
 private:
-	struct Program {
+	struct Program
+	{
 		GLuint id;
 
 		GLint u_model_matrix_loc;
@@ -107,12 +120,14 @@ private:
 		GLint u_roughness_loc;
 	};
 
-	struct DirectionalLight {
+	struct DirectionalLight
+	{
 		glm::vec3 direction;
 		glm::vec3 color;
 	};
 
-	bool customInit() override {
+	bool customInit() override
+	{
 		glfwSetKeyCallback(window, onKey);
 		glfwSetCursorPosCallback(window, onMouseMove);
 		glfwSetMouseButtonCallback(window, onMouseButton);
@@ -121,26 +136,35 @@ private:
 		windowResize(window, window_width, window_height);
 
 		if (!createProgram())
+		{
 			return false;
+		}
 
 		createTexture();
 
 		if (!createGeometry())
+		{
 			return false;
+		}
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
 		gl.enable(GL_DEPTH_TEST);
 
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
 			return false;
+		}
 
 		return true;
 	}
 
-	bool customLoop(double delta_time) override {
+	bool customLoop(double delta_time) override
+	{
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
 			return false;
+		}
 
 		buildGUI();
 		updateCamera(delta_time);
@@ -150,18 +174,25 @@ private:
 		glUseProgram(programs[current_program].id);
 
 		if (programs[current_program].u_model_matrix_loc != -1)
+		{
 			glUniformMatrix4fv(programs[current_program].u_model_matrix_loc,
 				1, GL_FALSE, glm::value_ptr(model_matrix));
+		}
 
 		if (programs[current_program].u_view_matrix_loc != -1)
+		{
 			glUniformMatrix4fv(programs[current_program].u_view_matrix_loc,
 				1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		}
 
 		if (programs[current_program].u_projection_matrix_loc != -1)
+		{
 			glUniformMatrix4fv(programs[current_program].u_projection_matrix_loc,
 				1, GL_FALSE, glm::value_ptr(projection));
+		}
 
-		if (programs[current_program].u_nor_transform_loc != -1) {
+		if (programs[current_program].u_nor_transform_loc != -1)
+		{
 			glm::mat3 nor_transform =
 				glm::mat3(glm::transpose(glm::inverse(model_matrix)));
 
@@ -170,15 +201,21 @@ private:
 		}
 
 		if (programs[current_program].u_sampler_loc != -1)
+		{
 			glUniform1i(programs[current_program].u_sampler_loc, 0);
+		}
 
 		if (programs[current_program].u_dir_light_direction_loc != -1)
+		{
 			glUniform3fv(programs[current_program].u_dir_light_direction_loc,
 				1, glm::value_ptr(dir_light.direction));
+		}
 
 		if (programs[current_program].u_dir_light_color_loc != -1)
+		{
 			glUniform3fv(programs[current_program].u_dir_light_color_loc,
 				1, glm::value_ptr(dir_light.color));
+		}
 
 		specificUniforms();
 
@@ -188,7 +225,8 @@ private:
 		return true;
 	}
 
-	void customDestroy() override {
+	void customDestroy() override
+	{
 		for (int i = 0; i < N_LIGHTING_MODELS; ++i)
 			if (glIsProgram(programs[i].id))
 				glDeleteProgram(programs[i].id);
@@ -198,7 +236,8 @@ private:
 		gl.destroyGeometry(device_mesh);
 	}
 
-	void buildGUI() {
+	void buildGUI()
+	{
 		using namespace ImGui;
 
 		/// LIGHTING MODEL
@@ -266,10 +305,12 @@ private:
 		End();
 	}
 
-	void lightOptionsGUI() {
+	void lightOptionsGUI()
+	{
 		using namespace ImGui;
 
-		switch (current_program) {
+		switch (current_program)
+		{
 			case 2:
 				Begin("Half-Lambert - Options");
 				SliderFloat("Wrap value", &half_lambert_wrap, 0.0f, 1.0f);
@@ -312,8 +353,10 @@ private:
 		}
 	}
 
-	void specificUniforms() {
-		switch (current_program) {
+	void specificUniforms()
+	{
+		switch (current_program)
+		{
 			case 2:
 				assert(programs[current_program].u_wrap_value_loc != -1);
 
@@ -353,33 +396,50 @@ private:
 		}
 	}
 
-	void updateCamera(float delta_time) {
+	void updateCamera(float delta_time)
+	{
 		if (forward)
+		{
 			camera.move(CameraDirection::FORWARD, delta_time);
+		}
 		else if (backward)
+		{
 			camera.move(CameraDirection::BACKWARD, delta_time);
+		}
 
 		if (left)
+		{
 			camera.move(CameraDirection::LEFT, delta_time);
+		}
 		else if (right)
+		{
 			camera.move(CameraDirection::RIGHT, delta_time);
+		}
 
 		if (up)
+		{
 			camera.move(CameraDirection::UP, delta_time);
+		}
 		else if (down)
+		{
 			camera.move(CameraDirection::DOWN, delta_time);
+		}
 
 		if (mouse_grab)
+		{
 			camera.look(mouse_last_x - mouse_x, mouse_last_y - mouse_y, delta_time);
+		}
 
 		mouse_last_x = mouse_x;
 		mouse_last_y = mouse_y;
 	}
 
-	bool createProgram() {
+	bool createProgram()
+	{
 		std::vector<ShaderInfo> shaders[N_LIGHTING_MODELS];
 
-		std::string files[N_LIGHTING_MODELS][2] {
+		std::string files[N_LIGHTING_MODELS][2]
+		{
 			{
 				"shaders/none/vs.glsl",
 				"shaders/none/fs.glsl",
@@ -414,16 +474,19 @@ private:
 			}
 		};
 
-		for (int i = 0; i < N_LIGHTING_MODELS; ++i) {
+		for (int i = 0; i < N_LIGHTING_MODELS; ++i)
+		{
 			std::ifstream vs_file(files[i][0]);
 			std::ifstream fs_file(files[i][1]);
 
-			if (!vs_file) {
+			if (!vs_file)
+			{
 				std::cerr << "ERROR: Could not open " << files[i][0] << '\n';
 				return false;
 			}
 
-			if (!fs_file) {
+			if (!fs_file)
+			{
 				std::cerr << "ERROR: Could not open " << files[i][1] << '\n';
 				return false;
 			}
@@ -439,9 +502,13 @@ private:
 			programs[i].id = gl.createProgram(shaders[i], success);
 
 			if (!success)
+			{
 				return false;
+			}
 			else
+			{
 				std::cout << "SUCCESS\n";
+			}
 
 			programs[i].u_model_matrix_loc =
 				glGetUniformLocation(programs[i].id, "u_model_matrix");
@@ -482,8 +549,8 @@ private:
 	void readShader(
 		std::ifstream& vs,
 		std::ifstream& fs,
-		std::vector<ShaderInfo>& shaders) {
-
+		std::vector<ShaderInfo>& shaders)
+	{
 		shaders.resize(2);
 
 		shaders[0].type = GL_VERTEX_SHADER;
@@ -493,14 +560,18 @@ private:
 		readFile(fs, shaders[1]);
 	}
 
-	void readFile(std::ifstream& stream, ShaderInfo& shader_info) {
+	void readFile(std::ifstream& stream, ShaderInfo& shader_info)
+	{
 		std::string line;
 
 		while (std::getline(stream, line))
+		{
 			shader_info.source += line + "\n";
+		}
 	}
 
-	void createTexture() {
+	void createTexture()
+	{
 		texture = Texture2D("../res/materialBallLambert.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 			//GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR);
@@ -508,7 +579,8 @@ private:
 		texture.bind(0);
 	}
 
-	bool createGeometry() {
+	bool createGeometry()
+	{
 		std::vector<BufferInfo<float>> f_buffers;
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
@@ -518,7 +590,9 @@ private:
 		bool success = parseOBJ("../res/materialBall.obj", f_buffers, indices);
 
 		if (!success)
+		{
 			return false;
+		}
 
 		f_buffers[0].attribute_name = "a_pos";
 		f_buffers[1].attribute_name = "a_nor";
@@ -532,7 +606,9 @@ private:
 			i_buffers, indices, success);
 
 		if (!success)
+		{
 			return false;
+		}
 
 		return true;
 	}
@@ -576,12 +652,14 @@ private:
 	glm::mat4 projection;
 };
 
-void onKey(GLFWwindow* window, int key, int, int action, int mods) {
+void onKey(GLFWwindow* window, int key, int, int action, int mods)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->fastCamera((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT);
 
-	switch (key) {
+	switch (key)
+	{
 		case GLFW_KEY_W:
 			app->moveForward(action != GLFW_RELEASE);
 			break;
@@ -611,28 +689,34 @@ void onKey(GLFWwindow* window, int key, int, int action, int mods) {
 	}
 }
 
-void onMouseMove(GLFWwindow* window, double xpos, double ypos) {
+void onMouseMove(GLFWwindow* window, double xpos, double ypos)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->updateMousePos(xpos, ypos);
 }
 
-void onMouseButton(GLFWwindow* window, int button, int action, int) {
+void onMouseButton(GLFWwindow* window, int button, int action, int)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		if (action != GLFW_RELEASE) {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	{
+		if (action != GLFW_RELEASE)
+		{
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 			app->mouseGrab(true);
 		}
-		else {
+		else
+		{
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 			app->mouseGrab(false);
 		}
 	}
 }
 
-void windowResize(GLFWwindow* window, int width, int height) {
+void windowResize(GLFWwindow* window, int width, int height)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->setProjection(glm::perspective(
@@ -641,10 +725,12 @@ void windowResize(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
-int main() {
+int main()
+{
 	Application app("Classic Model", WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	if (app.init()) {
+	if (app.init())
+	{
 		app.run();
 		app.destroy();
 	}

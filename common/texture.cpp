@@ -15,8 +15,8 @@ Texture2D::Texture2D(
 	GLenum min_filter,
 	GLenum mag_filter)
 	:
-	path(file_path) {
-
+	path(file_path)
+{
 	int width, height, channels;
 
 	stbi_set_flip_vertically_on_load(true);
@@ -29,7 +29,8 @@ Texture2D::Texture2D(
 
 	GLenum internal_format, data_format;
 
-	switch (channels) {
+	switch (channels)
+	{
 	case 1:
 		internal_format = GL_R8;
 		data_format = GL_RED;
@@ -61,7 +62,9 @@ Texture2D::Texture2D(
 		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
 		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
 		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
 		n_mipmap_levels = 1 + floor(std::log2(std::max(width, height)));
+	}
 
 	glTextureStorage2D(id, n_mipmap_levels, internal_format, width, height);
 
@@ -77,20 +80,26 @@ Texture2D::Texture2D(
 		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
 		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
 		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
 		glGenerateTextureMipmap(id);
+	}
 
 	stbi_image_free(image);
 }
 
-void Texture2D::bind(GLuint unit) {
+void Texture2D::bind(GLuint unit)
+{
 	assert(glIsTexture(id) && ("ERROR: Texture " +
 		path + " was not created or was deleted\n").c_str());
 
 	glBindTextureUnit(unit, id);
 }
 
-void Texture2D::destroy() {
+void Texture2D::destroy()
+{
 	if (glIsTexture(id))
+	{
 		glDeleteTextures(1, &id);
+	}
 }
 

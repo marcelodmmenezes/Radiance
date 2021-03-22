@@ -11,19 +11,22 @@
 #include <string>
 #include <vector>
 
-struct ShaderInfo {
+struct ShaderInfo
+{
 	GLenum type;
 	std::string source;
 };
 
 template <typename T>
-struct BufferInfo {
+struct BufferInfo
+{
 	std::string attribute_name;
 	size_t n_components;
 	std::vector<T> values;
 };
 
-struct DeviceMesh {
+struct DeviceMesh
+{
 	/// Handles
 	GLuint vao_id;
 	GLuint vbo_id;
@@ -33,12 +36,16 @@ struct DeviceMesh {
 	size_t n_indices;
 };
 
-class OpenGLContext {
+class OpenGLContext
+{
 public:
 	static bool checkErrors(std::string const& file, int line);
 
-	OpenGLContext() {}
-	~OpenGLContext() {}
+	OpenGLContext()
+	{}
+
+	~OpenGLContext()
+	{}
 
 	void setWireframe(bool state);
 	void setLineWidth(float width);

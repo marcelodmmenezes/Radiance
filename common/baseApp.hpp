@@ -11,7 +11,8 @@
 
 #include <string>
 
-class BaseApplication {
+class BaseApplication
+{
 public:
 	BaseApplication(
 		std::string const& title,
@@ -24,9 +25,11 @@ public:
 		window_width{ window_width },
 		window_height{ window_height },
 		show_info{ show_info },
-		fullscreen{ fullscreen } {}
+		fullscreen{ fullscreen }
+	{}
 
-	virtual ~BaseApplication() {}
+	virtual ~BaseApplication()
+	{}
 
 	bool init();
 	void destroy();

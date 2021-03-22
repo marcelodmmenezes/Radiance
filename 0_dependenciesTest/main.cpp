@@ -15,10 +15,12 @@
 #include <cstdlib>
 #include <iostream>
 
-int main() {
+int main()
+{
 	std::cout << "Running dependencies test...\n";
 
-	if (!glfwInit()) {
+	if (!glfwInit())
+	{
 		std::cerr << "ERROR: Could not initialize GLFW\n";
 
 		return EXIT_FAILURE;
@@ -28,10 +30,11 @@ int main() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window =
-		glfwCreateWindow(800, 600, "Dependencies Test", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(800, 600,
+		"Dependencies Test", nullptr, nullptr);
 
-	if (!window) {
+	if (!window)
+	{
 		std::cerr << "ERROR: Could not create GLFW window\n";
 
 		glfwTerminate();
@@ -41,7 +44,8 @@ int main() {
 
 	glfwMakeContextCurrent(window);
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
 		std::cerr << "ERROR: Could not initialize GLAD\n";
 
 		glfwDestroyWindow(window);
@@ -63,7 +67,8 @@ int main() {
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init(glsl_version);
 
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(window))
+	{
 		glfwPollEvents();
 
 		glClearColor(clear_c.r, clear_c.g, clear_c.b, clear_c.a);
@@ -106,7 +111,8 @@ int main() {
 	unsigned char* image = stbi_load("../res/checkers.png",
 		&width, &height, &channels, STBI_rgb_alpha);
 
-	if (!image) {
+	if (!image)
+	{
 		std::cerr << "ERROR: Could not load res/checkers.png\n";
 		return EXIT_FAILURE;
 	}

@@ -4,7 +4,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-enum class CameraDirection {
+enum class CameraDirection
+{
 	FORWARD,
 	BACKWARD,
 	LEFT,
@@ -13,7 +14,8 @@ enum class CameraDirection {
 	DOWN
 };
 
-class FlyThroughCamera {
+class FlyThroughCamera
+{
 public:
 	FlyThroughCamera(
 		glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),

@@ -8,11 +8,12 @@
 bool parseOBJ(
 	std::string const& file_path,
 	std::vector<BufferInfo<float>>& buffers,
-	std::vector<unsigned>& indices) {
-
+	std::vector<unsigned>& indices)
+{
 	std::ifstream file(file_path);
 
-	if (!file) {
+	if (!file)
+	{
 		std::cerr << "ERROR: Could not read " << file_path << "\n\n";
 		return false;
 	}
@@ -33,29 +34,38 @@ bool parseOBJ(
 	float in_float;
 	size_t vertex_it = 0u;
 
-	while (file >> in_str) {
-		if (in_str == "v") {
-			for (int i = 0; i < 3; ++i) {
+	while (file >> in_str)
+	{
+		if (in_str == "v")
+		{
+			for (int i = 0; i < 3; ++i)
+			{
 				file >> in_float;
 				temporary_pos.emplace_back(in_float);
 			}
 		}
-		else if (in_str == "vn") {
-			for (int i = 0; i < 3; ++i) {
+		else if (in_str == "vn")
+		{
+			for (int i = 0; i < 3; ++i)
+			{
 				file >> in_float;
 				temporary_nor.emplace_back(in_float);
 			}
 		}
-		else if (in_str == "vt") {
-			for (int i = 0; i < 2; ++i) {
+		else if (in_str == "vt")
+		{
+			for (int i = 0; i < 2; ++i)
+			{
 				file >> in_float;
 				temporary_uvs.emplace_back(in_float);
 			}
 		}
-		else if (in_str == "f") {
+		else if (in_str == "f")
+		{
 			int pos_id, nor_id, uvs_id;
 
-			for (size_t i = 0; i < 3; ++i) {
+			for (size_t i = 0; i < 3; ++i)
+			{
 				file >> pos_id >> in_char >> uvs_id >> in_char >> nor_id;
 
 				std::tuple<int, int, int> face {
@@ -66,12 +76,15 @@ bool parseOBJ(
 
 				auto it = indices_map.find(face);
 
-				if (it == indices_map.end()) {
+				if (it == indices_map.end())
+				{
 					indices_map[face] = vertex_it;
 					indices.emplace_back(vertex_it++);
 				}
 				else
+				{
 					indices.emplace_back(it->second);
+				}
 			}
 		}
 
@@ -86,18 +99,25 @@ bool parseOBJ(
 	buffers[1].values.resize(buffers[1].n_components * indices_map.size());
 	buffers[2].values.resize(buffers[2].n_components * indices_map.size());
 
-	for (auto& it : indices_map) {
+	for (auto& it : indices_map)
+	{
 		for (size_t i = 0; i < buffers[0].n_components; ++i)
+		{
 			buffers[0].values[buffers[0].n_components * it.second + i] =
 				temporary_pos[buffers[0].n_components * std::get<0>(it.first) + i];
+		}
 
 		for (size_t i = 0; i < buffers[1].n_components; ++i)
+		{
 			buffers[1].values[buffers[1].n_components * it.second + i] =
 				temporary_nor[buffers[1].n_components * std::get<1>(it.first) + i];
+		}
 
 		for (size_t i = 0; i < buffers[2].n_components; ++i)
+		{
 			buffers[2].values[buffers[2].n_components * it.second + i] =
 				temporary_uvs[buffers[2].n_components * std::get<2>(it.first) + i];
+		}
 	}
 
 	return true;

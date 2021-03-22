@@ -6,7 +6,8 @@
 #include <string>
 
 // TODO: support depth stencil texture
-class Texture2D {
+class Texture2D
+{
 public:
 	Texture2D(
 		std::string const& file_path,
@@ -16,8 +17,11 @@ public:
 		GLenum min_filter,
 		GLenum mag_filter);
 
-	Texture2D() {}
-	~Texture2D() {}
+	Texture2D()
+	{}
+
+	~Texture2D()
+	{}
 
 	// Manually destroying to avoid deleting the
 	// texture in the case of a vector resize

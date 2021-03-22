@@ -2,13 +2,15 @@
 
 #include <iostream>
 
-bool OpenGLContext::checkErrors(std::string const& file, int line) {
+bool OpenGLContext::checkErrors(std::string const& file, int line)
+{
 	GLenum error;
 	bool has_error = false;
 
-	while ((error = glGetError()) != GL_NO_ERROR) {
-		switch (error) {
-
+	while ((error = glGetError()) != GL_NO_ERROR)
+	{
+		switch (error)
+		{
 #define CASE(error) \
 	case (error): \
 		std::cerr << #error "\nFile: " << file << "\nLine: " << line << '\n'; \
@@ -24,7 +26,6 @@ bool OpenGLContext::checkErrors(std::string const& file, int line) {
 			CASE(GL_CONTEXT_LOST);
 
 #undef CASE
-
 		}
 
 		has_error = true;
@@ -33,17 +34,22 @@ bool OpenGLContext::checkErrors(std::string const& file, int line) {
 	return has_error;
 }
 
-void OpenGLContext::setWireframe(bool state) {
+void OpenGLContext::setWireframe(bool state)
+{
 	glPolygonMode(GL_FRONT_AND_BACK, state ? GL_LINE : GL_FILL);
 }
 
-void OpenGLContext::setLineWidth(float width) {
+void OpenGLContext::setLineWidth(float width)
+{
 	glLineWidth(width);
 }
 
-bool OpenGLContext::load(GLADloadproc loader) {
+bool OpenGLContext::load(GLADloadproc loader)
+{
 	if (!gladLoadGLLoader(loader))
+	{
 		return false;
+	}
 
 	std::cout << "OpenGL Info:\n"
 		<< "\nGraphics Card Vendor: " << glGetString(GL_VENDOR)
@@ -55,44 +61,55 @@ bool OpenGLContext::load(GLADloadproc loader) {
 	return true;
 }
 
-void OpenGLContext::enable(GLenum capability) {
+void OpenGLContext::enable(GLenum capability)
+{
 	glEnable(capability);
 }
 
-void OpenGLContext::disable(GLenum capability) {
+void OpenGLContext::disable(GLenum capability)
+{
 	glDisable(capability);
 }
 
 GLuint OpenGLContext::createProgram(
 	std::vector<ShaderInfo>& shader_infos,
-	bool& success) const {
-
+	bool& success) const
+{
 	success = false;
 	GLuint program_id;
 	std::vector<GLuint> shader_ids;
 	bool compiled;
 
-	for (size_t i = 0u; i < shader_infos.size(); ++i) {
+	for (size_t i = 0u; i < shader_infos.size(); ++i)
+	{
 		GLuint shader_id = compileShader(shader_infos[i], compiled);
 
 		if (compiled)
+		{
 			shader_ids.emplace_back(shader_id);
+		}
 		else
+		{
 			break;
+		}
 	}
 
-	if (compiled) {
+	if (compiled)
+	{
 		program_id = glCreateProgram();
 
 		for (size_t i = 0u; i < shader_ids.size(); ++i)
+		{
 			glAttachShader(program_id, shader_ids[i]);
+		}
 
 		glLinkProgram(program_id);
 
 		GLint linked;
 		glGetProgramiv(program_id, GL_LINK_STATUS, &linked);
 
-		if (linked == GL_FALSE) {
+		if (linked == GL_FALSE)
+		{
 			GLsizei log_length;
 			glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &log_length);
 
@@ -105,19 +122,23 @@ GLuint OpenGLContext::createProgram(
 			return 0u;
 		}
 		else
+		{
 			success = true;
+		}
 	}
 
 	for (size_t i = 0u; i < shader_ids.size(); ++i)
+	{
 		glDeleteShader(shader_ids[i]);
+	}
 
 	return program_id;
 }
 
 GLuint OpenGLContext::compileShader(
 	ShaderInfo& shader_info,
-	bool& success) const {
-
+	bool& success) const
+{
 	GLuint shader_id = glCreateShader(shader_info.type);
 	GLchar* source_c_str = (GLchar*)shader_info.source.c_str();
 	glShaderSource(shader_id, 1, &source_c_str, nullptr);
@@ -126,7 +147,8 @@ GLuint OpenGLContext::compileShader(
 	GLint compiled;
 	glGetShaderiv(shader_id, GL_COMPILE_STATUS, &compiled);
 
-	if (compiled == GL_FALSE) {
+	if (compiled == GL_FALSE)
+	{
 		GLsizei log_length;
 		glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &log_length);
 
@@ -135,22 +157,28 @@ GLuint OpenGLContext::compileShader(
 
 		std::string log_str(log.begin(), log.end());
 
-		switch (shader_info.type) {
+		switch (shader_info.type)
+		{
 			case GL_VERTEX_SHADER:
 				std::cerr << "Vertex ";
 				break;
+
 			case GL_TESS_CONTROL_SHADER:
 				std::cerr << "Tessellation control ";
 				break;
+
 			case GL_TESS_EVALUATION_SHADER:
 				std::cerr << "Tessellation evaluation ";
 				break;
+
 			case GL_GEOMETRY_SHADER:
 				std::cerr << "Geometry ";
 				break;
+
 			case GL_FRAGMENT_SHADER:
 				std::cerr << "Fragment ";
 				break;
+
 			case GL_COMPUTE_SHADER:
 				std::cerr << "Compute ";
 				break;
@@ -174,9 +202,10 @@ void populateBufferChunk(
 	size_t vertex_id,
 	size_t byte_offset,
 	size_t vertex_size_in_bytes,
-	std::vector<BufferInfo<T>> const& buffer) {
-
-	for (size_t i = 0u; i < buffer.size(); ++i) {
+	std::vector<BufferInfo<T>> const& buffer)
+{
+	for (size_t i = 0u; i < buffer.size(); ++i)
+	{
 		glNamedBufferSubData(buffer_id,
 			vertex_id * vertex_size_in_bytes + byte_offset,
 			buffer[i].n_components * sizeof(T),
@@ -191,8 +220,8 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	std::vector<BufferInfo<float>> const& f_buffers,
 	std::vector<BufferInfo<int>> const& i_buffers,
 	std::vector<unsigned> const& indices,
-	bool& success) const {
-
+	bool& success) const
+{
 	assert(glIsProgram(program_id) == GL_TRUE && "Program is not valid");
 
 	size_t n_buffers = f_buffers.size() + i_buffers.size();
@@ -202,17 +231,25 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	size_t n_vertices;
 
 	if (f_buffers.size() > 0u)
+	{
 		n_vertices = f_buffers[0].values.size() / f_buffers[0].n_components;
+	}
 	else
+	{
 		n_vertices = i_buffers[0].values.size() / i_buffers[0].n_components;
+	}
 
 	size_t vertex_size_in_bytes = 0u;
 
 	for (auto& it : f_buffers)
+	{
 		vertex_size_in_bytes += it.n_components * sizeof(float);
+	}
 
 	for (auto& it : i_buffers)
+	{
 		vertex_size_in_bytes += it.n_components * sizeof(int);
+	}
 
 	DeviceMesh mesh;
 	mesh.n_indices = indices.size();
@@ -227,7 +264,8 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 		n_vertices * vertex_size_in_bytes,
 		nullptr, GL_STATIC_DRAW);
 
-	for (size_t i = 0u; i < n_vertices; ++i) {
+	for (size_t i = 0u; i < n_vertices; ++i)
+	{
 		size_t byte_offset = 0u;
 
 		populateBufferChunk(mesh.vbo_id, i, byte_offset,
@@ -240,11 +278,13 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 
 	size_t byte_offset = 0u;
 
-	for (size_t i = 0u; i < f_buffers.size(); ++i) {
+	for (size_t i = 0u; i < f_buffers.size(); ++i)
+	{
 		GLint location = glGetAttribLocation(
 			program_id, f_buffers[i].attribute_name.c_str());
 
-		if (location == -1) {
+		if (location == -1)
+		{
 			std::cerr << "ERROR: " << f_buffers[i].attribute_name
 				<< " is not active in the program\n\n";
 
@@ -260,11 +300,13 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 		byte_offset += f_buffers[i].n_components * sizeof(float);
 	}
 
-	for (size_t i = 0u; i < i_buffers.size(); ++i) {
+	for (size_t i = 0u; i < i_buffers.size(); ++i)
+	{
 		GLint location = glGetAttribLocation(
 			program_id, i_buffers[i].attribute_name.c_str());
 
-		if (location == -1) {
+		if (location == -1)
+		{
 			std::cerr << "ERROR: " << f_buffers[i].attribute_name
 				<< " is not active in the program\n\n";
 
@@ -294,14 +336,21 @@ DeviceMesh OpenGLContext::createPackedStaticGeometry(
 	return mesh;
 }
 
-void OpenGLContext::destroyGeometry(DeviceMesh& mesh) const {
+void OpenGLContext::destroyGeometry(DeviceMesh& mesh) const
+{
 	if (glIsBuffer(mesh.ebo_id))
+	{
 		glDeleteBuffers(1, &mesh.ebo_id);
+	}
 
 	if (glIsBuffer(mesh.vbo_id))
+	{
 		glDeleteBuffers(1, &mesh.vbo_id);
+	}
 
 	if (glIsVertexArray(mesh.vao_id))
+	{
 		glDeleteVertexArrays(1, &mesh.vao_id);
+	}
 }
 

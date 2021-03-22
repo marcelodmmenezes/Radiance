@@ -10,7 +10,8 @@ void onKey(GLFWwindow* window, int key, int, int action, int);
 void onMouseScroll(GLFWwindow* window, double, double y_offset);
 void windowResize(GLFWwindow* window, int width, int height);
 
-class Application : public BaseApplication {
+class Application : public BaseApplication
+{
 public:
 	Application(
 		std::string const& title = "Application",
@@ -24,36 +25,45 @@ public:
 			window_width,
 			window_height,
 			show_info,
-			fullscreen) {}
+			fullscreen)
+	{}
 
-	~Application() {}
+	~Application()
+	{}
 
-	void moveUp(bool state) {
+	void moveUp(bool state)
+	{
 		up = state;
 	}
 
-	void moveDown(bool state) {
+	void moveDown(bool state)
+	{
 		down = state;
 	}
 
-	void moveLeft(bool state) {
+	void moveLeft(bool state)
+	{
 		left = state;
 	}
 
-	void moveRight(bool state) {
+	void moveRight(bool state)
+	{
 		right = state;
 	}
 
-	void moveZ(double y_offset) {
+	void moveZ(double y_offset)
+	{
 		forward = y_offset;
 	}
 
-	void setProjection(glm::mat4&& proj) {
+	void setProjection(glm::mat4&& proj)
+	{
 		projection = proj;
 	}
 
 private:
-	bool customInit() override {
+	bool customInit() override
+	{
 		glfwSetKeyCallback(window, onKey);
 		glfwSetScrollCallback(window, onMouseScroll);
 		glfwSetWindowSizeCallback(window, windowResize);
@@ -61,24 +71,33 @@ private:
 		windowResize(window, window_width, window_height);
 
 		if (!createProgram())
+		{
 			return false;
+		}
 
 		createTexture();
 
 		if (!createGeometry())
+		{
 			return false;
+		}
 
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
 			return false;
+		}
 
 		return true;
 	}
 
-	bool customLoop(double delta_time) override {
+	bool customLoop(double delta_time) override
+	{
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
 			return false;
+		}
 
 		buildGUI();
 
@@ -110,17 +129,23 @@ private:
 		return true;
 	}
 
-	void customDestroy() override {
+	void customDestroy() override
+	{
 		if (glIsProgram(program_id))
+		{
 			glDeleteProgram(program_id);
+		}
 
 		if (glIsTexture(texture_id))
+		{
 			glDeleteTextures(1, &texture_id);
+		}
 
 		gl.destroyGeometry(device_mesh);
 	}
 
-	void buildGUI() {
+	void buildGUI()
+	{
 		using namespace ImGui;
 
 		Begin("Square properties");
@@ -188,20 +213,25 @@ private:
 		End();
 	}
 
-	void adjustTextureProperties() {
-		switch (texture_filtering) {
+	void adjustTextureProperties()
+	{
+		switch (texture_filtering)
+		{
 			case 0:
 				glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
 				break;
 
 			case 1:
 				glTextureParameteri(texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTextureParameteri(texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 				break;
 		}
 
-		switch (texture_wrap_s) {
+		switch (texture_wrap_s)
+		{
 #define CASE(id, param) \
 	case id: \
 		glTextureParameteri(texture_id, GL_TEXTURE_WRAP_S, param); \
@@ -216,7 +246,8 @@ private:
 #undef CASE
 		}
 
-		switch (texture_wrap_t) {
+		switch (texture_wrap_t)
+		{
 #define CASE(id, param) \
 	case id: \
 		glTextureParameteri(texture_id, GL_TEXTURE_WRAP_T, param); \
@@ -232,25 +263,37 @@ private:
 		}
 	}
 
-	void moveSquare(double delta_time) {
+	void moveSquare(double delta_time)
+	{
 		if (up)
+		{
 			square_pos.y += delta_time * square_velocity;
+		}
 		else if (down)
+		{
 			square_pos.y -= delta_time * square_velocity;
+		}
 
 		if (left)
+		{
 			square_pos.x -= delta_time * square_velocity;
+		}
 		else if (right)
+		{
 			square_pos.x += delta_time * square_velocity;
+		}
 
-		if (forward != 0.0) {
+		if (forward != 0.0)
+		{
 			square_pos.z += forward * 2 * delta_time * square_velocity;
 			forward = 0.0;
 		}
 	}
 
-	bool createProgram() {
-		std::vector<ShaderInfo> shaders = {
+	bool createProgram()
+	{
+		std::vector<ShaderInfo> shaders =
+		{
 			{
 				GL_VERTEX_SHADER,
 				"#version 450 core\n"
@@ -263,7 +306,8 @@ private:
 				""
 				"out vec2 v_tex_coords;"
 				""
-				"void main() {"
+				"void main()"
+				"{"
 				"	const mat2 rotate = mat2("
 				"		vec2(cos(u_angle), sin(u_angle)),"
 				"		vec2(-sin(u_angle), cos(u_angle)));"
@@ -284,15 +328,24 @@ private:
 				""
 				"out vec4 v_color;"
 				""
-				"void main() {"
+				"void main()"
+				"{"
 				"	if (u_has_color && u_has_texture)"
+				"	{"
 				"		v_color = u_color * texture(u_sampler, v_tex_coords).rrra;"
+				"	}"
 				"	else if (u_has_color)"
+				"	{"
 				"		v_color = u_color;"
+				"	}"
 				"	else if (u_has_texture)"
+				"	{"
 				"		v_color = texture(u_sampler, v_tex_coords).rrra;"
+				"	}"
 				"	else"
+				"	{"
 				"		v_color = vec4(0.0);"
+				"	}"
 				"}"
 			}
 		};
@@ -302,7 +355,9 @@ private:
 		program_id = gl.createProgram(shaders, success);
 
 		if (!success)
+		{
 			return false;
+		}
 
 		u_transform_loc = glGetUniformLocation(program_id, "u_transform");
 		u_angle_loc = glGetUniformLocation(program_id, "u_angle");
@@ -313,8 +368,10 @@ private:
 		return true;
 	}
 
-	void createTexture() {
-		std::vector<float> texture_data {
+	void createTexture()
+	{
+		std::vector<float> texture_data
+		{
 			0.0f, 1.0f,
 			1.0f, 0.0f
 		};
@@ -326,8 +383,10 @@ private:
 			GL_RED, GL_FLOAT, texture_data.data());
 	}
 
-	bool createGeometry() {
-		std::vector<BufferInfo<float>> f_buffers {
+	bool createGeometry()
+	{
+		std::vector<BufferInfo<float>> f_buffers
+		{
 			{
 				"a_pos",
 				2,
@@ -352,7 +411,8 @@ private:
 
 		std::vector<BufferInfo<int>> i_buffers;
 
-		std::vector<unsigned> indices {
+		std::vector<unsigned> indices
+		{
 			0, 1, 2, 0, 2, 3
 		};
 
@@ -362,7 +422,9 @@ private:
 			program_id, f_buffers, i_buffers, indices, success);
 
 		if (!success)
+		{
 			return false;
+		}
 
 		return true;
 	}
@@ -404,10 +466,12 @@ private:
 	glm::mat4 projection;
 };
 
-void onKey(GLFWwindow* window, int key, int, int action, int) {
+void onKey(GLFWwindow* window, int key, int, int action, int)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
-	switch (key) {
+	switch (key)
+	{
 		case GLFW_KEY_W:
 			app->moveUp(action != GLFW_RELEASE);
 			break;
@@ -429,13 +493,15 @@ void onKey(GLFWwindow* window, int key, int, int action, int) {
 	}
 }
 
-void onMouseScroll(GLFWwindow* window, double, double y_offset) {
+void onMouseScroll(GLFWwindow* window, double, double y_offset)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->moveZ(y_offset);
 }
 
-void windowResize(GLFWwindow* window, int width, int height) {
+void windowResize(GLFWwindow* window, int width, int height)
+{
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
 	app->setProjection(glm::perspective(
@@ -444,10 +510,12 @@ void windowResize(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
-int main() {
+int main()
+{
 	Application app("Hello, World", WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	if (app.init()) {
+	if (app.init())
+	{
 		app.run();
 		app.destroy();
 	}
