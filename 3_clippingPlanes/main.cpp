@@ -11,7 +11,7 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-#define N_LIGHTING_MODELS 8
+#define MAX_CLIPPING_PLANES 4
 
 void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
@@ -39,6 +39,12 @@ public:
 		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		camera = FlyThroughCamera(glm::vec3(-3.0f, 3.0f, 3.0f), -45.0f, -30.0f);
+
+		for (int i = 0; i < MAX_CLIPPING_PLANES; ++i)
+		{
+			plane_active[i] = false;
+			plane_equations[i] = { 0.0f, 1.0f, 0.0f, 0.0f };
+		}
 	}
 
 	~Application()
@@ -110,14 +116,11 @@ private:
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
 
-		GLint u_wrap_value_loc;
-
 		GLint u_view_pos_loc;
 		GLint u_shininess_loc;
 
-		GLint u_light_steps_loc;
-
-		GLint u_roughness_loc;
+		GLint u_plane_active_loc[MAX_CLIPPING_PLANES];
+		GLint u_plane_equations_loc[MAX_CLIPPING_PLANES];
 	};
 
 	struct DirectionalLight
@@ -171,53 +174,56 @@ private:
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glUseProgram(programs[current_program].id);
+		glUseProgram(program.id);
 
-		if (programs[current_program].u_model_matrix_loc != -1)
+		assert(program.u_model_matrix_loc != -1);
+		assert(program.u_view_pos_loc != -1);
+		assert(program.u_projection_matrix_loc != -1);
+		assert(program.u_nor_transform_loc != -1);
+		assert(program.u_sampler_loc != -1);
+		assert(program.u_dir_light_color_loc != -1);
+		assert(program.u_view_pos_loc != -1);
+		assert(program.u_shininess_loc != -1);
+
+		for (int i = 0; i < MAX_CLIPPING_PLANES; ++i)
 		{
-			glUniformMatrix4fv(programs[current_program].u_model_matrix_loc,
-				1, GL_FALSE, glm::value_ptr(model_matrix));
+			assert(program.u_plane_active_loc[i] != -1);
+			assert(program.u_plane_equations_loc[i] != -1);
 		}
 
-		if (programs[current_program].u_view_matrix_loc != -1)
+		glUniformMatrix4fv(program.u_model_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(model_matrix));
+		glUniformMatrix4fv(program.u_view_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+		glUniformMatrix4fv(program.u_projection_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix3fv(program.u_nor_transform_loc,
+			1, GL_FALSE, glm::value_ptr(glm::mat3(
+				glm::transpose(glm::inverse(model_matrix)))));
+
+		glUniform1i(program.u_sampler_loc, 0);
+
+		glUniform3fv(program.u_dir_light_direction_loc,
+			1, glm::value_ptr(dir_light.direction));
+		glUniform3fv(program.u_dir_light_color_loc,
+			1, glm::value_ptr(dir_light.color));
+
+		glUniform3fv(program.u_view_pos_loc,
+			1, glm::value_ptr(camera.new_position));
+
+		glUniform1f(program.u_shininess_loc,
+			material_shineness);
+		
+		for (int i = 0; i < MAX_CLIPPING_PLANES; ++i)
 		{
-			glUniformMatrix4fv(programs[current_program].u_view_matrix_loc,
-				1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+			glUniform1i(program.u_plane_active_loc[i], plane_active[i]);
+
+			if (plane_active[i])
+			{
+				glUniform4fv(program.u_plane_equations_loc[i],
+					1, glm::value_ptr(plane_equations[i]));
+			}
 		}
-
-		if (programs[current_program].u_projection_matrix_loc != -1)
-		{
-			glUniformMatrix4fv(programs[current_program].u_projection_matrix_loc,
-				1, GL_FALSE, glm::value_ptr(projection));
-		}
-
-		if (programs[current_program].u_nor_transform_loc != -1)
-		{
-			glm::mat3 nor_transform =
-				glm::mat3(glm::transpose(glm::inverse(model_matrix)));
-
-			glUniformMatrix3fv(programs[current_program].u_nor_transform_loc, 1,
-				GL_FALSE, glm::value_ptr(nor_transform));
-		}
-
-		if (programs[current_program].u_sampler_loc != -1)
-		{
-			glUniform1i(programs[current_program].u_sampler_loc, 0);
-		}
-
-		if (programs[current_program].u_dir_light_direction_loc != -1)
-		{
-			glUniform3fv(programs[current_program].u_dir_light_direction_loc,
-				1, glm::value_ptr(dir_light.direction));
-		}
-
-		if (programs[current_program].u_dir_light_color_loc != -1)
-		{
-			glUniform3fv(programs[current_program].u_dir_light_color_loc,
-				1, glm::value_ptr(dir_light.color));
-		}
-
-		specificUniforms();
 
 		glBindVertexArray(device_mesh.vao_id);
 		glDrawElements(GL_TRIANGLES, device_mesh.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -227,12 +233,9 @@ private:
 
 	void customDestroy() override
 	{
-		for (int i = 0; i < N_LIGHTING_MODELS; ++i)
+		if (glIsProgram(program.id))
 		{
-			if (glIsProgram(programs[i].id))
-			{
-				glDeleteProgram(programs[i].id);
-			}
+			glDeleteProgram(program.id);
 		}
 
 		texture.destroy();
@@ -244,25 +247,41 @@ private:
 	{
 		using namespace ImGui;
 
-		/// LIGHTING MODEL
-		Begin("Lighting Model");
-		Dummy(ImVec2(0.0f, 2.0f));
+		/// CLIPPING PLANES
 
-		BeginGroup();
-		RadioButton("None", &current_program, 0);
-		RadioButton("Lambert Diffuse Lighting", &current_program, 1);
-		RadioButton("Half-Lambert (Diffuse Wrap)", &current_program, 2);
-		RadioButton("Phong Lighting", &current_program, 3);
-		RadioButton("Blinn-Phong Lighting", &current_program, 4);
-		RadioButton("Banded Lighting", &current_program, 5);
-		RadioButton("Minnaert Lighting", &current_program, 6);
-		RadioButton("Oren-Nayar Lighting", &current_program, 7);
-		EndGroup();
+		for (int i = 0; i < MAX_CLIPPING_PLANES; ++i)
+		{
+			Begin(("Clipping plane " + std::to_string(i)).c_str());
 
-		Dummy(ImVec2(0.0f, 2.0f));
+			Checkbox("Active", &plane_active[i]);
+
+			if (plane_active[i])
+			{
+				if (!glIsEnabled(GL_CLIP_DISTANCE0 + i))
+				{
+					gl.enable(GL_CLIP_DISTANCE0 + i);
+				}
+			}
+			else
+			{
+				if (glIsEnabled(GL_CLIP_DISTANCE0 + i))
+				{
+					gl.disable(GL_CLIP_DISTANCE0 + i);
+				}
+			}
+
+			SliderFloat("A", &plane_equations[i].x, -1.0f, 1.0f, "%.3f");
+			SliderFloat("B", &plane_equations[i].y, -1.0f, 1.0f, "%.3f");
+			SliderFloat("C", &plane_equations[i].z, -1.0f, 1.0f, "%.3f");
+			SliderFloat("D", &plane_equations[i].w, -10.0f, 10.0f, "%.3f");
+
+			End();
+		}
+
+		/// MATERIAL
+		Begin("Material options");
+		SliderFloat("Shineness", &material_shineness, 1.0f, 64.0f);
 		End();
-
-		lightOptionsGUI();
 
 		/// LIGHTS
 		Begin("Directional Light");
@@ -309,97 +328,6 @@ private:
 		End();
 	}
 
-	void lightOptionsGUI()
-	{
-		using namespace ImGui;
-
-		switch (current_program)
-		{
-			case 2:
-				Begin("Half-Lambert - Options");
-				SliderFloat("Wrap value", &half_lambert_wrap, 0.0f, 1.0f);
-				End();
-
-				break;
-
-			case 3:
-				Begin("Phong - Options");
-				SliderFloat("Material shineness", &material_shineness, 1.0f, 64.0f);
-				End();
-
-				break;
-
-			case 4:
-				Begin("Blinn-Phong - Options");
-				SliderFloat("Material shineness", &material_shineness, 1.0f, 64.0f);
-				End();
-
-				break;
-
-			case 5:
-				Begin("Banded - Options");
-				SliderFloat("Light Steps", &light_steps, 1.0f, 512.0f);
-				End();
-
-				break;
-
-			case 6:
-				Begin("Minnaert - Options");
-				SliderFloat("Material Roughness", &roughness, 0.0f, 1.0f);
-				End();
-
-				break;
-
-			case 7:
-				Begin("Oren-Nayar - Options");
-				SliderFloat("Material Roughness", &roughness, 0.0f, 1.0f);
-				End();
-		}
-	}
-
-	void specificUniforms()
-	{
-		switch (current_program)
-		{
-			case 2:
-				assert(programs[current_program].u_wrap_value_loc != -1);
-
-				glUniform1f(programs[current_program].u_wrap_value_loc, half_lambert_wrap);
-
-				break;
-
-			case 3:
-			case 4:
-				assert(programs[current_program].u_view_pos_loc != -1);
-				assert(programs[current_program].u_shininess_loc != -1);
-
-				glUniform3fv(programs[current_program].u_view_pos_loc,
-					1, glm::value_ptr(camera.new_position));
-				glUniform1f(programs[current_program].u_shininess_loc,
-					material_shineness);
-
-				break;
-
-			case 5:
-				assert(programs[current_program].u_light_steps_loc != -1);
-
-				glUniform1f(programs[current_program].u_light_steps_loc, light_steps);
-
-				break;
-
-			case 6:
-			case 7:
-				assert(programs[current_program].u_view_pos_loc != -1);
-				assert(programs[current_program].u_roughness_loc != -1);
-
-				glUniform3fv(programs[current_program].u_view_pos_loc,
-					1, glm::value_ptr(camera.new_position));
-				glUniform1f(programs[current_program].u_roughness_loc, roughness);
-
-				break;
-		}
-	}
-
 	void updateCamera(float delta_time)
 	{
 		if (forward)
@@ -440,111 +368,74 @@ private:
 
 	bool createProgram()
 	{
-		std::vector<ShaderInfo> shaders[N_LIGHTING_MODELS];
+		std::vector<ShaderInfo> shaders;
 
-		std::string files[N_LIGHTING_MODELS][2]
+		std::ifstream vs_file("shaders/vs.glsl");
+		std::ifstream fs_file("shaders/fs.glsl");
+
+		if (!vs_file)
 		{
-			{
-				"shaders/none/vs.glsl",
-				"shaders/none/fs.glsl",
-			},
-			{
-				"shaders/lambert/vs.glsl",
-				"shaders/lambert/fs.glsl",
-			},
-			{
-				"shaders/half_lambert/vs.glsl",
-				"shaders/half_lambert/fs.glsl",
-			},
-			{
-				"shaders/phong/vs.glsl",
-				"shaders/phong/fs.glsl",
-			},
-			{
-				"shaders/blinn_phong/vs.glsl",
-				"shaders/blinn_phong/fs.glsl",
-			},
-			{
-				"shaders/banded/vs.glsl",
-				"shaders/banded/fs.glsl",
-			},
-			{
-				"shaders/minnaert/vs.glsl",
-				"shaders/minnaert/fs.glsl",
-			},
-			{
-				"shaders/oren_nayar/vs.glsl",
-				"shaders/oren_nayar/fs.glsl",
-			}
-		};
+			std::cerr << "ERROR: Could not open vertex shader\n";
+			return false;
+		}
 
-		for (int i = 0; i < N_LIGHTING_MODELS; ++i)
+		if (!fs_file)
 		{
-			std::ifstream vs_file(files[i][0]);
-			std::ifstream fs_file(files[i][1]);
+			std::cerr << "ERROR: Could not open fragment shader\n";
+			return false;
+		}
 
-			if (!vs_file)
-			{
-				std::cerr << "ERROR: Could not open " << files[i][0] << '\n';
-				return false;
-			}
+		std::cout << "Creating program ... ";
 
-			if (!fs_file)
-			{
-				std::cerr << "ERROR: Could not open " << files[i][1] << '\n';
-				return false;
-			}
+		readShader(vs_file, fs_file, shaders);
 
-			std::cout << "Creating program: "
-				<< files[i][0].substr(0, files[i][0].find_last_of("\\/"))
-				<< " ... ";
+		bool success;
 
-			readShader(vs_file, fs_file, shaders[i]);
+		program.id = gl.createProgram(shaders, success);
 
-			bool success;
+		if (!success)
+		{
+			return false;
+		}
+		else
+		{
+			std::cout << "SUCCESS\n";
+		}
 
-			programs[i].id = gl.createProgram(shaders[i], success);
+		program.u_model_matrix_loc =
+			glGetUniformLocation(program.id, "u_model_matrix");
+		program.u_view_matrix_loc =
+			glGetUniformLocation(program.id, "u_view_matrix");
+		program.u_projection_matrix_loc =
+			glGetUniformLocation(program.id, "u_projection_matrix");
+		program.u_nor_transform_loc =
+			glGetUniformLocation(program.id, "u_nor_transform");
 
-			if (!success)
-			{
-				return false;
-			}
-			else
-			{
-				std::cout << "SUCCESS\n";
-			}
+		program.u_sampler_loc =
+			glGetUniformLocation(program.id, "u_sampler");
 
-			programs[i].u_model_matrix_loc =
-				glGetUniformLocation(programs[i].id, "u_model_matrix");
-			programs[i].u_view_matrix_loc =
-				glGetUniformLocation(programs[i].id, "u_view_matrix");
-			programs[i].u_projection_matrix_loc =
-				glGetUniformLocation(programs[i].id, "u_projection_matrix");
-			programs[i].u_nor_transform_loc =
-				glGetUniformLocation(programs[i].id, "u_nor_transform");
+		program.u_dir_light_direction_loc =
+			glGetUniformLocation(program.id, "u_dir_light.direction");
+		program.u_dir_light_color_loc =
+			glGetUniformLocation(program.id, "u_dir_light.color");
 
-			programs[i].u_sampler_loc =
-				glGetUniformLocation(programs[i].id, "u_sampler");
+		program.u_view_pos_loc =
+			glGetUniformLocation(program.id, "u_view_pos");
 
-			programs[i].u_dir_light_direction_loc =
-				glGetUniformLocation(programs[i].id, "u_dir_light.direction");
-			programs[i].u_dir_light_color_loc =
-				glGetUniformLocation(programs[i].id, "u_dir_light.color");
+		program.u_shininess_loc =
+			glGetUniformLocation(program.id, "u_shininess");
 
-			programs[i].u_wrap_value_loc =
-				glGetUniformLocation(programs[i].id, "u_wrap_value");
+		for (int i = 0; i < MAX_CLIPPING_PLANES; ++i)
+		{
+			std::string name = "u_plane_active[" + std::to_string(i) + "]";
 
-			programs[i].u_view_pos_loc =
-				glGetUniformLocation(programs[i].id, "u_view_pos");
+			program.u_plane_active_loc[i] =
+				glGetUniformLocation(program.id, name.c_str());
 
-			programs[i].u_shininess_loc =
-				glGetUniformLocation(programs[i].id, "u_shininess");
+			name = "u_plane_equations[" + std::to_string(i) + "]";
 
-			programs[i].u_light_steps_loc =
-				glGetUniformLocation(programs[i].id, "u_light_steps");
-
-			programs[i].u_roughness_loc =
-				glGetUniformLocation(programs[i].id, "u_roughness");
+			program.u_plane_equations_loc[i] =
+				glGetUniformLocation(program.id, name.c_str());
 		}
 
 		return true;
@@ -589,8 +480,6 @@ private:
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
 
-		//bool success = parseOBJ("../res/square.obj", f_buffers, indices);
-		//bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
 		bool success = parseOBJ("../res/materialBall.obj", f_buffers, indices);
 
 		if (!success)
@@ -602,11 +491,8 @@ private:
 		f_buffers[1].attribute_name = "a_nor";
 		f_buffers[2].attribute_name = "a_tex";
 
-		// Assuming all programs attrib locations are the same
-		// (Except program 0 - None)
-		// Shader must specify attrib location on layout
 		device_mesh = gl.createPackedStaticGeometry(
-			programs[1].id, f_buffers,
+			program.id, f_buffers,
 			i_buffers, indices, success);
 
 		if (!success)
@@ -618,13 +504,14 @@ private:
 	}
 
 	/// Programs
-	Program programs[N_LIGHTING_MODELS];
+	Program program;
 
-	/// Lighting model
-	float half_lambert_wrap = 0.5f;
+	/// Material
 	float material_shineness = 32.0f;
-	float light_steps = 64.0f;
-	float roughness = 0.0f;
+
+	/// Clipping planes
+	bool plane_active[MAX_CLIPPING_PLANES];
+	glm::vec4 plane_equations[MAX_CLIPPING_PLANES];
 
 	/// Object properties
 	DeviceMesh device_mesh;
@@ -645,8 +532,6 @@ private:
 	bool down = false;
 
 	/// Application state
-	int current_program = 0;
-
 	bool mouse_grab = false;
 	double mouse_x;
 	double mouse_y;
