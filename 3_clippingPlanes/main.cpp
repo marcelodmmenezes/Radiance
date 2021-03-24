@@ -616,7 +616,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("Classic Model", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Clipping Planes", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{

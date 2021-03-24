@@ -616,14 +616,14 @@ private:
 
 		unsigned char t2_level_2[]
 		{
-			0, 0, 255, 255, 255, 255,
+			0, 0, 200, 255, 255, 255,
 
-			255, 255, 255, 0, 0, 255
+			255, 255, 255, 0, 0, 200
 		};
 
 		unsigned char t2_level_3[]
 		{
-			127, 127, 127
+			0, 0, 0
 		};
 
 		data[0] = (unsigned char*)t2_level_0;
@@ -815,7 +815,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("Classic Model", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("MipmapVis", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{
