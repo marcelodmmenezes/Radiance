@@ -10,22 +10,22 @@
 Texture2D::Texture2D(
 	std::string const& file_path,
 	int n_desired_channels,
-	GLenum wrap_s,
-	GLenum wrap_t,
-	GLenum min_filter,
-	GLenum mag_filter)
+	GLint wrap_s,
+	GLint wrap_t,
+	GLint min_filter,
+	GLint mag_filter)
 	:
-	path(file_path)
+	path{ file_path }
 {
 	int width, height, channels;
 
 	stbi_set_flip_vertically_on_load(true);
 
-	unsigned char* image = stbi_load(file_path.c_str(),
+	unsigned char* image = stbi_load(path.c_str(),
 		&width, &height, &channels, n_desired_channels);
 
 	assert(image && ("ERROR: Could not load texture " +
-		file_path + ": " + stbi_failure_reason() + '\n').c_str());
+		path + ": " + stbi_failure_reason() + '\n').c_str());
 
 	GLenum internal_format, data_format;
 
@@ -54,7 +54,7 @@ Texture2D::Texture2D(
 	glCreateTextures(GL_TEXTURE_2D, 1, &id);
 
 	assert(glIsTexture(id) && ("ERROR: Could not create texture from " +
-		file_path + '\n').c_str());
+		path + '\n').c_str());
 
 	GLsizei n_mipmap_levels = 1;
 
@@ -85,6 +85,67 @@ Texture2D::Texture2D(
 	}
 
 	stbi_image_free(image);
+}
+
+Texture2D::Texture2D(
+	std::vector<unsigned char*> data,
+	int width,
+	int height,
+	GLenum internal_format,
+	GLenum data_format,
+	GLint wrap_s,
+	GLint wrap_t,
+	GLint min_filter,
+	GLint mag_filter)
+	:
+	path{ "Build from memory" }
+{
+	glCreateTextures(GL_TEXTURE_2D, 1, &id);
+
+	assert(glIsTexture(id) && ("ERROR: Could not create texture from " +
+		path + '\n').c_str());
+
+	GLsizei n_mipmap_levels = 1;
+
+	if (min_filter == GL_NEAREST_MIPMAP_NEAREST ||
+		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
+		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
+		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
+		n_mipmap_levels = 1 + floor(std::log2(std::max(width, height)));
+	}
+
+	assert((unsigned)n_mipmap_levels == data.size() &&
+		"ERROR: Number of provided mipmaps doesnt match");
+
+	glTextureStorage2D(id, n_mipmap_levels, internal_format, width, height);
+
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrap_s);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrap_t);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, min_filter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, mag_filter);
+
+	if (min_filter == GL_NEAREST_MIPMAP_NEAREST ||
+		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
+		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
+		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
+		int current_width = width, current_height = height;
+
+		for (int i = 0; i < n_mipmap_levels; ++i)
+		{
+			glTextureSubImage2D(id, i, 0, 0, current_width, current_height,
+				data_format, GL_UNSIGNED_BYTE, data[i]);
+
+			current_width /= 2;
+			current_height /= 2;
+		}
+	}
+}
+
+void Texture2D::setParameteri(GLenum parameter, GLint value)
+{
+	glTextureParameteri(id, parameter, value);
 }
 
 void Texture2D::bind(GLuint unit)
