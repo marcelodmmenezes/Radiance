@@ -11,6 +11,8 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
+#define N_TEXTURES 3
+
 void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
 void onMouseButton(GLFWwindow* window, int button, int action, int);
@@ -96,7 +98,7 @@ public:
 	}
 
 private:
-	struct Program
+	struct GeometryProgram
 	{
 		GLuint id;
 
@@ -118,6 +120,16 @@ private:
 		GLint u_bump_map_active_loc;
 	};
 
+	struct SkyboxProgram
+	{
+		GLint id;
+
+		GLint u_view_matrix_loc;
+		GLint u_projection_matrix_loc;
+
+		GLint u_cube_sampler_loc;
+	};
+
 	struct DirectionalLight
 	{
 		glm::vec3 direction;
@@ -133,7 +145,12 @@ private:
 
 		windowResize(window, window_width, window_height);
 
-		if (!createProgram())
+		if (!createGeometryProgram())
+		{
+			return false;
+		}
+
+		if (!createSkyboxProgram())
 		{
 			return false;
 		}
@@ -145,10 +162,15 @@ private:
 			return false;
 		}
 
+		if (!createSkybox())
+		{
+			return false;
+		}
+
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
 		gl.enable(GL_DEPTH_TEST);
-		//gl.enable(GL_CULL_FACE);
+		gl.enable(GL_CULL_FACE);
 
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 		{
@@ -168,56 +190,83 @@ private:
 		buildGUI();
 		updateCamera(delta_time);
 
+		glm::vec3 camera_position = camera.new_position;
+		glm::mat4 view_matrix = camera.getViewMatrix();
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glUseProgram(program.id);
+		glUseProgram(geometry_program.id);
 
 		adjustTextureProperties();
 
-		glUniformMatrix4fv(program.u_model_matrix_loc,
+		glUniformMatrix4fv(geometry_program.u_model_matrix_loc,
 			1, GL_FALSE, glm::value_ptr(model_matrix));
-		glUniformMatrix4fv(program.u_view_matrix_loc,
-			1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-		glUniformMatrix4fv(program.u_projection_matrix_loc,
+		glUniformMatrix4fv(geometry_program.u_view_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(view_matrix));
+		glUniformMatrix4fv(geometry_program.u_projection_matrix_loc,
 			1, GL_FALSE, glm::value_ptr(projection));
-		glUniformMatrix3fv(program.u_nor_transform_loc,
+		glUniformMatrix3fv(geometry_program.u_nor_transform_loc,
 			1, GL_FALSE, glm::value_ptr(glm::mat3(
 				glm::transpose(glm::inverse(model_matrix)))));
 
-		glUniform1i(program.u_color_sampler_loc, 0);
-		glUniform1i(program.u_normal_sampler_loc, 1);
+		glUniform1i(geometry_program.u_color_sampler_loc, 0);
+		glUniform1i(geometry_program.u_normal_sampler_loc, 1);
 
-		glUniform3fv(program.u_dir_light_direction_loc,
+		glUniform3fv(geometry_program.u_dir_light_direction_loc,
 			1, glm::value_ptr(dir_light.direction));
-		glUniform3fv(program.u_dir_light_color_loc,
+		glUniform3fv(geometry_program.u_dir_light_color_loc,
 			1, glm::value_ptr(dir_light.color));
 
-		glUniform3fv(program.u_view_pos_loc,
-			1, glm::value_ptr(camera.new_position));
+		glUniform3fv(geometry_program.u_view_pos_loc,
+			1, glm::value_ptr(camera_position));
 
-		glUniform1f(program.u_shininess_loc, material_shineness);
+		glUniform1f(geometry_program.u_shininess_loc, material_shineness);
 
-		glUniform1f(program.u_uv_multiplier_loc, uv_multiplier);
+		glUniform1f(geometry_program.u_uv_multiplier_loc, uv_multiplier);
 
-		glUniform1f(program.u_bump_map_active_loc, bump_map_active);
+		glUniform1f(geometry_program.u_bump_map_active_loc, bump_map_active);
 
-		glBindVertexArray(device_mesh.vao_id);
-		glDrawElements(GL_TRIANGLES, device_mesh.n_indices, GL_UNSIGNED_INT, nullptr);
+		glBindVertexArray(geometry.vao_id);
+		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
+
+		glDepthFunc(GL_LEQUAL);
+
+		glUseProgram(skybox_program.id);
+
+		glUniformMatrix4fv(skybox_program.u_view_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(
+				glm::mat4(glm::mat3(view_matrix))));
+		glUniformMatrix4fv(skybox_program.u_projection_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(projection));
+
+		glUniform1i(skybox_program.u_cube_sampler_loc, 2);
+
+		glBindVertexArray(skybox.vao_id);
+		glDrawElements(GL_TRIANGLES, skybox.n_indices, GL_UNSIGNED_INT, nullptr);
+
+		glDepthFunc(GL_LESS);
 
 		return true;
 	}
 
 	void customDestroy() override
 	{
-		if (glIsProgram(program.id))
+		if (glIsProgram(geometry_program.id))
 		{
-			glDeleteProgram(program.id);
+			glDeleteProgram(geometry_program.id);
 		}
 
-		texture[0].destroy();
-		texture[1].destroy();
+		if (glIsProgram(skybox_program.id))
+		{
+			glDeleteProgram(skybox_program.id);
+		}
 
-		gl.destroyGeometry(device_mesh);
+		for (int i = 0; i < N_TEXTURES; ++i)
+		{
+			textures[i].destroy();
+		}
+
+		gl.destroyGeometry(geometry);
 	}
 
 	void buildGUI()
@@ -329,38 +378,38 @@ private:
 		switch (mag_filter)
 		{
 			case 0:
-				texture[1].setParameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				textures[1].setParameteri(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 				break;
 
 			case 1:
-				texture[1].setParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				textures[1].setParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				break;
 		}
 
 		switch (min_filter)
 		{
 			case 0:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				break;
 
 			case 1:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				break;
 
 			case 2:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 				break;
 
 			case 3:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
 				break;
 
 			case 4:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 				break;
 
 			case 5:
-				texture[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				textures[1].setParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 				break;
 		}
 
@@ -368,7 +417,7 @@ private:
 		{
 #define CASE(id, param) \
 	case id: \
-		texture[1].setParameteri(GL_TEXTURE_WRAP_S, param); \
+		textures[1].setParameteri(GL_TEXTURE_WRAP_S, param); \
 		break
 			
 			CASE(0, GL_CLAMP_TO_EDGE);
@@ -384,7 +433,7 @@ private:
 		{
 #define CASE(id, param) \
 	case id: \
-		texture[1].setParameteri(GL_TEXTURE_WRAP_T, param); \
+		textures[1].setParameteri(GL_TEXTURE_WRAP_T, param); \
 		break
 			
 			CASE(0, GL_CLAMP_TO_EDGE);
@@ -435,12 +484,12 @@ private:
 		mouse_last_y = mouse_y;
 	}
 
-	bool createProgram()
+	bool createGeometryProgram()
 	{
 		std::vector<ShaderInfo> shaders;
 
-		std::ifstream vs_file("shaders/vs.glsl");
-		std::ifstream fs_file("shaders/fs.glsl");
+		std::ifstream vs_file("shaders/geometry/vs.glsl");
+		std::ifstream fs_file("shaders/geometry/fs.glsl");
 
 		if (!vs_file)
 		{
@@ -460,7 +509,7 @@ private:
 
 		bool success;
 
-		program.id = gl.createProgram(shaders, success);
+		geometry_program.id = gl.createProgram(shaders, success);
 
 		if (!success)
 		{
@@ -471,49 +520,100 @@ private:
 			std::cout << "SUCCESS\n";
 		}
 
-		program.u_model_matrix_loc =
-			glGetUniformLocation(program.id, "u_model_matrix");
-		program.u_view_matrix_loc =
-			glGetUniformLocation(program.id, "u_view_matrix");
-		program.u_projection_matrix_loc =
-			glGetUniformLocation(program.id, "u_projection_matrix");
-		program.u_nor_transform_loc =
-			glGetUniformLocation(program.id, "u_nor_transform");
+		geometry_program.u_model_matrix_loc =
+			glGetUniformLocation(geometry_program.id, "u_model_matrix");
+		geometry_program.u_view_matrix_loc =
+			glGetUniformLocation(geometry_program.id, "u_view_matrix");
+		geometry_program.u_projection_matrix_loc =
+			glGetUniformLocation(geometry_program.id, "u_projection_matrix");
+		geometry_program.u_nor_transform_loc =
+			glGetUniformLocation(geometry_program.id, "u_nor_transform");
 
-		program.u_color_sampler_loc =
-			glGetUniformLocation(program.id, "u_color_sampler");
+		geometry_program.u_color_sampler_loc =
+			glGetUniformLocation(geometry_program.id, "u_color_sampler");
 
-		program.u_normal_sampler_loc =
-			glGetUniformLocation(program.id, "u_normal_sampler");
+		geometry_program.u_normal_sampler_loc =
+			glGetUniformLocation(geometry_program.id, "u_normal_sampler");
 
-		program.u_dir_light_direction_loc =
-			glGetUniformLocation(program.id, "u_dir_light.direction");
-		program.u_dir_light_color_loc =
-			glGetUniformLocation(program.id, "u_dir_light.color");
+		geometry_program.u_dir_light_direction_loc =
+			glGetUniformLocation(geometry_program.id, "u_dir_light.direction");
+		geometry_program.u_dir_light_color_loc =
+			glGetUniformLocation(geometry_program.id, "u_dir_light.color");
 
-		program.u_view_pos_loc =
-			glGetUniformLocation(program.id, "u_view_pos");
+		geometry_program.u_view_pos_loc =
+			glGetUniformLocation(geometry_program.id, "u_view_pos");
 
-		program.u_shininess_loc =
-			glGetUniformLocation(program.id, "u_shininess");
+		geometry_program.u_shininess_loc =
+			glGetUniformLocation(geometry_program.id, "u_shininess");
 
-		program.u_uv_multiplier_loc =
-			glGetUniformLocation(program.id, "u_uv_multiplier");
+		geometry_program.u_uv_multiplier_loc =
+			glGetUniformLocation(geometry_program.id, "u_uv_multiplier");
 
-		program.u_bump_map_active_loc =
-			glGetUniformLocation(program.id, "u_bump_map_active");
+		geometry_program.u_bump_map_active_loc =
+			glGetUniformLocation(geometry_program.id, "u_bump_map_active");
 
-		assert(program.u_model_matrix_loc != -1);
-		assert(program.u_view_pos_loc != -1);
-		assert(program.u_projection_matrix_loc != -1);
-		assert(program.u_nor_transform_loc != -1);
-		assert(program.u_color_sampler_loc != -1);
-		assert(program.u_normal_sampler_loc != -1);
-		assert(program.u_dir_light_color_loc != -1);
-		assert(program.u_view_pos_loc != -1);
-		assert(program.u_shininess_loc != -1);
-		assert(program.u_uv_multiplier_loc != -1);
-		assert(program.u_bump_map_active_loc != -1);
+		assert(geometry_program.u_model_matrix_loc != -1);
+		assert(geometry_program.u_view_pos_loc != -1);
+		assert(geometry_program.u_projection_matrix_loc != -1);
+		assert(geometry_program.u_nor_transform_loc != -1);
+		assert(geometry_program.u_color_sampler_loc != -1);
+		assert(geometry_program.u_normal_sampler_loc != -1);
+		assert(geometry_program.u_dir_light_color_loc != -1);
+		assert(geometry_program.u_view_pos_loc != -1);
+		assert(geometry_program.u_shininess_loc != -1);
+		assert(geometry_program.u_uv_multiplier_loc != -1);
+		assert(geometry_program.u_bump_map_active_loc != -1);
+
+		return true;
+	}
+
+	bool createSkyboxProgram()
+	{
+		std::vector<ShaderInfo> shaders;
+
+		std::ifstream vs_file("shaders/skybox/vs.glsl");
+		std::ifstream fs_file("shaders/skybox/fs.glsl");
+
+		if (!vs_file)
+		{
+			std::cerr << "ERROR: Could not open vertex shader\n";
+			return false;
+		}
+
+		if (!fs_file)
+		{
+			std::cerr << "ERROR: Could not open fragment shader\n";
+			return false;
+		}
+
+		std::cout << "Creating program ... ";
+
+		readShader(vs_file, fs_file, shaders);
+
+		bool success;
+
+		skybox_program.id = gl.createProgram(shaders, success);
+
+		if (!success)
+		{
+			return false;
+		}
+		else
+		{
+			std::cout << "SUCCESS\n";
+		}
+
+		skybox_program.u_view_matrix_loc =
+			glGetUniformLocation(skybox_program.id, "u_view_matrix");
+		skybox_program.u_projection_matrix_loc =
+			glGetUniformLocation(skybox_program.id, "u_projection_matrix");
+
+		skybox_program.u_cube_sampler_loc =
+			glGetUniformLocation(skybox_program.id, "u_cube_sampler");
+
+		assert(skybox_program.u_view_matrix_loc != -1);
+		assert(skybox_program.u_projection_matrix_loc != -1);
+		assert(skybox_program.u_cube_sampler_loc != -1);
 
 		return true;
 	}
@@ -544,14 +644,24 @@ private:
 
 	void createTextures()
 	{
-		texture[0] = Texture2D("../res/materialBall/color.png", 3,
+		textures[0] = Texture2D("../res/materialBall/color.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		texture[1] = Texture2D("../res/materialBall/normal.png", 3,
+		textures[1] = Texture2D("../res/materialBall/normal.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		texture[0].bind(0);
-		texture[1].bind(1);
+		OpenGLContext::checkErrors(__FILE__, __LINE__);
+
+		textures[2] = TextureCube("../res/skybox/saintPeterSquare/", "jpg", 3,
+			GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR,
+			false);
+
+		OpenGLContext::checkErrors(__FILE__, __LINE__);
+
+		textures[0].bind(0);
+		textures[1].bind(1);
+		textures[2].bind(2);
 	}
 
 	bool createGeometry()
@@ -572,7 +682,8 @@ private:
 		f_buffers[2].attribute_name = "a_tex";
 
 		f_buffers.emplace_back(
-			(BufferInfo<float>){
+			BufferInfo<float>
+			{
 				"a_tan",
 				3,
 				std::vector<float>(f_buffers[0].values.size(), 0.0f)
@@ -584,8 +695,66 @@ private:
 			f_buffers[2].values,
 			f_buffers[3].values);
 
-		device_mesh = gl.createPackedStaticGeometry(
-			program.id, f_buffers, i_buffers, indices, success);
+		geometry = gl.createPackedStaticGeometry(
+			geometry_program.id, f_buffers, i_buffers, indices, success);
+
+		if (!success)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createSkybox()
+	{
+		std::vector<BufferInfo<float>> f_buffers
+		{
+			BufferInfo<float>
+			{
+				"a_pos",
+				3,
+				std::vector<float>
+				{
+					-1.0f, -1.0f, -1.0f,
+					-1.0f, -1.0f, +1.0f,
+					-1.0f, +1.0f, -1.0f,
+					-1.0f, +1.0f, +1.0f,
+					+1.0f, -1.0f, -1.0f,
+					+1.0f, -1.0f, +1.0f,
+					+1.0f, +1.0f, -1.0f,
+					+1.0f, +1.0f, +1.0f
+				}
+			}
+		};
+
+		std::vector<BufferInfo<int>> i_buffers;
+
+		std::vector<unsigned> indices
+		{
+			0, 1, 5,
+			0, 5, 4,
+
+			1, 3, 7,
+			1, 7, 5,
+
+			2, 6, 7,
+			2, 7, 3,
+
+			3, 1, 0,
+			3, 0, 2,
+
+			4, 5, 7,
+			4, 7, 6,
+
+			0, 4, 6,
+			0, 6, 2
+		};
+
+		bool success;
+
+		skybox = gl.createPackedStaticGeometry(
+			skybox_program.id, f_buffers, i_buffers, indices, success);
 
 		if (!success)
 		{
@@ -596,13 +765,14 @@ private:
 	}
 
 	/// Programs
-	Program program;
+	GeometryProgram geometry_program;
+	SkyboxProgram skybox_program;
 
 	/// Material
 	float material_shineness = 32.0f;
 
-	/// Texture
-	Texture2D texture[2];
+	/// Textures
+	Texture textures[N_TEXTURES];
 
 	bool bump_map_active = true;
 
@@ -614,7 +784,8 @@ private:
 	float uv_multiplier = 1.0f;
 
 	/// Object properties
-	DeviceMesh device_mesh;
+	DeviceMesh geometry;
+	DeviceMesh skybox;
 	glm::mat4 model_matrix;
 
 	/// Lights

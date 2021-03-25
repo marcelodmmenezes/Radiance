@@ -8,6 +8,37 @@
 #include <cmath>
 #include <iostream>
 
+Texture::Texture(std::string const& file_path)
+	:
+	path{ file_path }
+{}
+
+void Texture::setParameteri(GLenum parameter, GLint value)
+{
+	glTextureParameteri(id, parameter, value);
+}
+
+void Texture::bind(GLuint unit)
+{
+	if (!glIsTexture(id))
+	{
+		std::cerr << "ERROR: Texture " + path +
+			" was not created or was deleted\n";
+
+		abort();
+	}
+
+	glBindTextureUnit(unit, id);
+}
+
+void Texture::destroy()
+{
+	if (glIsTexture(id))
+	{
+		glDeleteTextures(1, &id);
+	}
+}
+
 Texture2D::Texture2D(
 	std::string const& file_path,
 	int n_desired_channels,
@@ -16,7 +47,7 @@ Texture2D::Texture2D(
 	GLint min_filter,
 	GLint mag_filter)
 	:
-	path{ file_path }
+	Texture(file_path)
 {
 	int width, height, channels;
 
@@ -107,7 +138,7 @@ Texture2D::Texture2D(
 	GLint min_filter,
 	GLint mag_filter)
 	:
-	path{ "Build from memory" }
+	Texture("Built from memory")
 {
 	glCreateTextures(GL_TEXTURE_2D, 1, &id);
 
@@ -152,24 +183,131 @@ Texture2D::Texture2D(
 	}
 }
 
-void Texture2D::setParameteri(GLenum parameter, GLint value)
+TextureCube::TextureCube(
+	std::string const& folder,
+	std::string const& extension,
+	int n_desired_channels,
+	GLint wrap_s,
+	GLint wrap_t,
+	GLint min_filter,
+	GLint mag_filter,
+	bool flip_on_load)
+	:
+	Texture(folder)
 {
-	glTextureParameteri(id, parameter, value);
-}
+	int width, height, channels;
 
-void Texture2D::bind(GLuint unit)
-{
-	assert(glIsTexture(id) && ("ERROR: Texture " +
-		path + " was not created or was deleted\n").c_str());
+	stbi_set_flip_vertically_on_load(flip_on_load);
 
-	glBindTextureUnit(unit, id);
-}
-
-void Texture2D::destroy()
-{
-	if (glIsTexture(id))
+	std::string faces[]
 	{
-		glDeleteTextures(1, &id);
+		"right.",
+		"left.",
+		"top.",
+		"bottom.",
+		"back.",
+		"front."
+	};
+
+	glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &id);
+
+	if (!glIsTexture(id))
+	{
+		std::cerr << "ERROR: Could not create texture from " + path + '\n';
+		abort();
+	}
+
+	unsigned char* images[6];
+
+	images[0] = stbi_load(
+		(folder + faces[0] + extension).c_str(),
+		&width, &height, &channels, n_desired_channels);
+
+	if (!images[0])
+	{
+		std::cerr << "ERROR: Could not load texture " +
+			path + faces[0] + extension + ": " +
+			stbi_failure_reason() + '\n';
+
+		abort();
+	}
+
+	GLenum internal_format, data_format;
+
+	switch (channels)
+	{
+		case 1:
+			internal_format = GL_R8;
+			data_format = GL_RED;
+			break;
+
+		case 2:
+			internal_format = GL_RG8;
+			data_format = GL_RG;
+			break;
+
+		case 3:
+			internal_format = GL_RGB8;
+			data_format = GL_RGB;
+			break;
+
+		default:
+			internal_format = GL_RGBA8;
+			data_format = GL_RGBA;
+	}
+
+	for (int i = 0; i < 6; ++i)
+	{
+		int w, h, c;
+
+		images[i] = stbi_load(
+			(folder + faces[i] + extension).c_str(),
+			&w, &h, &c, n_desired_channels);
+
+		if (!images[i])
+		{
+			std::cerr << "ERROR: Could not load texture " +
+				path + faces[0] + extension + ": " +
+				stbi_failure_reason() + '\n';
+
+			abort();
+		}
+
+		assert(w == width && h == height && c == channels &&
+			"Cube map faces must have equal properties");
+	}
+
+	GLsizei n_mipmap_levels = 1;
+
+	if (min_filter == GL_NEAREST_MIPMAP_NEAREST ||
+		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
+		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
+		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
+		n_mipmap_levels = 1 + floor(std::log2(std::max(width, height)));
+	}
+
+	glTextureStorage2D(id, n_mipmap_levels, internal_format, width, height);
+
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrap_s);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrap_t);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, min_filter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, mag_filter);
+
+	for (int i = 0; i < 6; ++i)
+	{
+		glTextureSubImage3D(id, 0, 0, 0, i, width, height,
+				1, data_format, GL_UNSIGNED_BYTE, images[i]);
+
+		stbi_image_free(images[i]);
+	}
+
+	if (min_filter == GL_NEAREST_MIPMAP_NEAREST ||
+		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
+		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
+		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
+		glGenerateTextureMipmap(id);
 	}
 }
 

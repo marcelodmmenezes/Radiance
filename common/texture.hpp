@@ -6,8 +6,33 @@
 #include <string>
 #include <vector>
 
+class Texture
+{
+public:
+	Texture(std::string const& file_path);
+
+	Texture()
+	{}
+
+	virtual ~Texture()
+	{}
+
+	void setParameteri(GLenum parameter, GLint value);
+
+	// Manually destroying to avoid deleting the
+	// texture in the case of a vector resize
+	void destroy();
+
+	void bind(GLuint unit);
+
+protected:
+	std::string path;
+
+	GLuint id;
+};
+
 // TODO: support depth stencil texture
-class Texture2D
+class Texture2D : public Texture
 {
 public:
 	// Creates texture from image from disk
@@ -36,22 +61,20 @@ public:
 
 	Texture2D()
 	{}
+};
 
-	~Texture2D()
-	{}
-
-	void setParameteri(GLenum parameter, GLint value);
-
-	// Manually destroying to avoid deleting the
-	// texture in the case of a vector resize
-	void destroy();
-
-	void bind(GLuint unit);
-
-private:
-	std::string path;
-
-	GLuint id;
+class TextureCube : public Texture
+{
+public:
+	TextureCube(
+		std::string const& folder,
+		std::string const& extension,
+		int n_desired_channels,
+		GLint wrap_s,
+		GLint wrap_t,
+		GLint min_filter,
+		GLint mag_filter,
+		bool flip_on_load);
 };
 
 #endif // TEXTURE_HPP

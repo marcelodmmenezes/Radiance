@@ -8,7 +8,7 @@
 
 /*
  * Basic obj parser for now.
- * Object must contain v, vn and vt
+ * Object must contain v, vn, and vt
  */
 bool parseOBJ(
 	std::string const& file_path,
