@@ -123,3 +123,57 @@ bool parseOBJ(
 	return true;
 }
 
+void generateTangentVectors(
+	std::vector<unsigned> const& indices,
+	std::vector<float> const& positions,
+	std::vector<float> const& uvs,
+	std::vector<float>& tangents)
+{
+	for (unsigned i = 0; i < indices.size(); i += 3)
+	{
+		float x[3], y[3], z[3];
+		float u[3], v[3];
+
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			unsigned it = 3 * (indices[i + j]);
+
+			x[j] = positions[it];
+			y[j] = positions[it + 1];
+			z[j] = positions[it + 2];
+
+			it = 2 * (indices[i + j]);
+
+			u[j] = uvs[it];
+			v[j] = uvs[it + 1];
+		}
+
+		float x_0 = x[1] - x[0];
+		float y_0 = y[1] - y[0];
+		float z_0 = z[1] - z[0];
+
+		float x_1 = x[2] - x[0];
+		float y_1 = y[2] - y[0];
+		float z_1 = z[2] - z[0];
+
+		float u_0 = u[1] - u[0];
+		float u_1 = u[2] - u[0];
+
+		float v_0 = v[1] - v[0];
+		float v_1 = v[2] - v[0];
+
+		float r = 1.0f / (u_0 * v_1 - u_1 * v_0);
+
+		float u_dir_x = (v_1 * x_0 - v_0 * x_1) * r;
+		float u_dir_y = (v_1 * y_0 - v_0 * y_1) * r;
+		float u_dir_z = (v_1 * z_0 - v_0 * z_1) * r;
+
+		for (unsigned j = 0; j < 3; ++j)
+		{
+			tangents[indices[i + j] * 3] += u_dir_x;
+			tangents[indices[i + j] * 3 + 1] += u_dir_y;
+			tangents[indices[i + j] * 3 + 2] += u_dir_z;
+		}
+	}
+}
+
