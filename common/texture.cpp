@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <iostream>
 
 Texture2D::Texture2D(
 	std::string const& file_path,
@@ -24,8 +25,13 @@ Texture2D::Texture2D(
 	unsigned char* image = stbi_load(path.c_str(),
 		&width, &height, &channels, n_desired_channels);
 
-	assert(image && ("ERROR: Could not load texture " +
-		path + ": " + stbi_failure_reason() + '\n').c_str());
+	if (!image)
+	{
+		std::cerr << "ERROR: Could not load texture " +
+			path + ": " + stbi_failure_reason() + '\n';
+
+		abort();
+	}
 
 	GLenum internal_format, data_format;
 
@@ -53,8 +59,11 @@ Texture2D::Texture2D(
 
 	glCreateTextures(GL_TEXTURE_2D, 1, &id);
 
-	assert(glIsTexture(id) && ("ERROR: Could not create texture from " +
-		path + '\n').c_str());
+	if (!glIsTexture(id))
+	{
+		std::cerr << "ERROR: Could not create texture from " + path + '\n';
+		abort();
+	}
 
 	GLsizei n_mipmap_levels = 1;
 
