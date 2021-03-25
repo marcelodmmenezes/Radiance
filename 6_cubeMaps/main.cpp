@@ -544,10 +544,10 @@ private:
 
 	void createTextures()
 	{
-		texture[0] = Texture2D("../res/metalGate/baseColor.jpg", 3,
+		texture[0] = Texture2D("../res/materialBall/color.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		texture[1] = Texture2D("../res/metalGate/normal.jpg", 3,
+		texture[1] = Texture2D("../res/materialBall/normal.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
 		texture[0].bind(0);
@@ -560,7 +560,7 @@ private:
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
 
-		bool success = parseOBJ("../res/materialBall.obj", f_buffers, indices);
+		bool success = parseOBJ("../res/materialBall/mesh.obj", f_buffers, indices);
 
 		if (!success)
 		{

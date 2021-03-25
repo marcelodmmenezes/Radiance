@@ -576,9 +576,8 @@ private:
 
 	void createTexture()
 	{
-		texture = Texture2D("../res/materialBallLambert.png", 3,
+		texture = Texture2D("../res/materialBall/color.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-			//GL_REPEAT, GL_REPEAT, GL_LINEAR, GL_LINEAR);
 
 		texture.bind(0);
 	}
@@ -589,9 +588,7 @@ private:
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
 
-		//bool success = parseOBJ("../res/square.obj", f_buffers, indices);
-		//bool success = parseOBJ("../res/cube.obj", f_buffers, indices);
-		bool success = parseOBJ("../res/materialBall.obj", f_buffers, indices);
+		bool success = parseOBJ("../res/materialBall/mesh.obj", f_buffers, indices);
 
 		if (!success)
 		{
