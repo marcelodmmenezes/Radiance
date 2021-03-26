@@ -35,7 +35,7 @@ public:
 			show_info,
 			fullscreen) 
 	{
-		dir_light.direction = glm::vec3(-1.0f, -1.0f, -1.0f);
+		dir_light.direction = glm::vec3(0.4f, -1.0f, -0.85f);
 		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		camera = FlyThroughCamera(glm::vec3(-1.0f, 0.5f, 4.0f), -20.0f, -10.0f);
@@ -109,6 +109,7 @@ private:
 
 		GLint u_color_sampler_loc;
 		GLint u_normal_sampler_loc;
+		GLint u_cube_sampler_loc;
 
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
@@ -118,6 +119,10 @@ private:
 
 		GLint u_uv_multiplier_loc;
 		GLint u_bump_map_active_loc;
+
+		GLint u_diffuse_loc;
+		GLint u_reflection_loc;
+		GLint u_refraction_loc;
 	};
 
 	struct SkyboxProgram
@@ -211,6 +216,7 @@ private:
 
 		glUniform1i(geometry_program.u_color_sampler_loc, 0);
 		glUniform1i(geometry_program.u_normal_sampler_loc, 1);
+		glUniform1i(geometry_program.u_cube_sampler_loc, 2);
 
 		glUniform3fv(geometry_program.u_dir_light_direction_loc,
 			1, glm::value_ptr(dir_light.direction));
@@ -225,6 +231,10 @@ private:
 		glUniform1f(geometry_program.u_uv_multiplier_loc, uv_multiplier);
 
 		glUniform1f(geometry_program.u_bump_map_active_loc, bump_map_active);
+
+		glUniform1f(geometry_program.u_diffuse_loc, diffuse);
+		glUniform1f(geometry_program.u_reflection_loc, reflection);
+		glUniform1f(geometry_program.u_refraction_loc, refraction);
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -326,6 +336,9 @@ private:
 		Begin("Object");
 		SliderFloat("UV multiplier", &uv_multiplier, 1.0f, 200.0f);
 		SliderFloat("Shineness", &material_shineness, 1.0f, 64.0f);
+		SliderFloat("Diffuse contribution", &diffuse, 0.0f, 1.0f);
+		SliderFloat("Reflection contribution", &reflection, 0.0f, 1.0f);
+		SliderFloat("Refraction contribution", &refraction, 0.0f, 1.0f);
 		End();
 
 		/// LIGHTS
@@ -535,6 +548,9 @@ private:
 		geometry_program.u_normal_sampler_loc =
 			glGetUniformLocation(geometry_program.id, "u_normal_sampler");
 
+		geometry_program.u_cube_sampler_loc =
+			glGetUniformLocation(geometry_program.id, "u_cube_sampler");
+
 		geometry_program.u_dir_light_direction_loc =
 			glGetUniformLocation(geometry_program.id, "u_dir_light.direction");
 		geometry_program.u_dir_light_color_loc =
@@ -552,17 +568,28 @@ private:
 		geometry_program.u_bump_map_active_loc =
 			glGetUniformLocation(geometry_program.id, "u_bump_map_active");
 
+		geometry_program.u_diffuse_loc =
+			glGetUniformLocation(geometry_program.id, "u_diffuse");
+		geometry_program.u_reflection_loc =
+			glGetUniformLocation(geometry_program.id, "u_reflection");
+		geometry_program.u_refraction_loc =
+			glGetUniformLocation(geometry_program.id, "u_refraction");
+
 		assert(geometry_program.u_model_matrix_loc != -1);
 		assert(geometry_program.u_view_pos_loc != -1);
 		assert(geometry_program.u_projection_matrix_loc != -1);
 		assert(geometry_program.u_nor_transform_loc != -1);
 		assert(geometry_program.u_color_sampler_loc != -1);
 		assert(geometry_program.u_normal_sampler_loc != -1);
+		assert(geometry_program.u_cube_sampler_loc != -1);
 		assert(geometry_program.u_dir_light_color_loc != -1);
 		assert(geometry_program.u_view_pos_loc != -1);
 		assert(geometry_program.u_shininess_loc != -1);
 		assert(geometry_program.u_uv_multiplier_loc != -1);
 		assert(geometry_program.u_bump_map_active_loc != -1);
+		assert(geometry_program.u_diffuse_loc != -1);
+		assert(geometry_program.u_reflection_loc != -1);
+		assert(geometry_program.u_refraction_loc != -1);
 
 		return true;
 	}
@@ -787,6 +814,10 @@ private:
 	DeviceMesh geometry;
 	DeviceMesh skybox;
 	glm::mat4 model_matrix;
+
+	float diffuse = 1.0f;
+	float reflection = 0.2f;
+	float refraction = 0.0f;
 
 	/// Lights
 	DirectionalLight dir_light;
