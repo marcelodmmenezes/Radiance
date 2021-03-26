@@ -24,11 +24,13 @@ uniform float u_diffuse;
 uniform float u_reflection;
 uniform float u_refraction;
 
+uniform float u_gamma;
+
 out vec4 out_color;
 
 void main()
 {
-	vec3 tex = texture(u_color_sampler, v_tex).rgb;
+	vec3 tex = pow(texture(u_color_sampler, v_tex).rgb, vec3(u_gamma));
 	vec3 normal;
 
 	if (u_bump_map_active)
@@ -58,13 +60,17 @@ void main()
 	vec3 tangent_reflection = reflect(-tangent_view_dir, normal);
 	vec3 world_reflection = v_tbn_inv * tangent_reflection;
 
-	out_color += vec4(texture(u_cube_sampler, world_reflection).rgb, 1.0) * u_reflection;
+	vec3 cube_reflection = pow(texture(u_cube_sampler, world_reflection).rgb, vec3(u_gamma));
+	out_color += vec4(cube_reflection, 1.0) * u_reflection;
 
 	// Refraction
 	float ratio = 1.0 / 1.52;
 	vec3 tangent_refraction = refract(-tangent_view_dir, normal, ratio);
 	vec3 world_refraction = v_tbn_inv * tangent_refraction;
 
-	out_color += vec4(texture(u_cube_sampler, world_refraction).rgb, 1.0) * u_refraction;
+	vec3 cube_refraction = pow(texture(u_cube_sampler, world_refraction).rgb, vec3(u_gamma));
+	out_color += vec4(cube_refraction, 1.0) * u_refraction;
+
+	out_color.rgb = pow(out_color.rgb, vec3(1.0 / u_gamma));
 }
 

@@ -123,6 +123,8 @@ private:
 		GLint u_diffuse_loc;
 		GLint u_reflection_loc;
 		GLint u_refraction_loc;
+
+		GLint u_gamma_loc;
 	};
 
 	struct SkyboxProgram
@@ -235,6 +237,8 @@ private:
 		glUniform1f(geometry_program.u_diffuse_loc, diffuse);
 		glUniform1f(geometry_program.u_reflection_loc, reflection);
 		glUniform1f(geometry_program.u_refraction_loc, refraction);
+
+		glUniform1f(geometry_program.u_gamma_loc, gamma_correction);
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -383,6 +387,11 @@ private:
 		SliderFloat("Pitch", &camera.pitch, -89.0f, 89.0f);
 
 		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+		SliderFloat("Gamma", &gamma_correction, 0.1f, 4.0f);
+
+		Dummy(ImVec2(0.0f, 2.0f));
+
 		End();
 	}
 
@@ -575,6 +584,9 @@ private:
 		geometry_program.u_refraction_loc =
 			glGetUniformLocation(geometry_program.id, "u_refraction");
 
+		geometry_program.u_gamma_loc =
+			glGetUniformLocation(geometry_program.id, "u_gamma");
+
 		assert(geometry_program.u_model_matrix_loc != -1);
 		assert(geometry_program.u_view_pos_loc != -1);
 		assert(geometry_program.u_projection_matrix_loc != -1);
@@ -590,6 +602,7 @@ private:
 		assert(geometry_program.u_diffuse_loc != -1);
 		assert(geometry_program.u_reflection_loc != -1);
 		assert(geometry_program.u_refraction_loc != -1);
+		assert(geometry_program.u_gamma_loc != -1);
 
 		return true;
 	}
@@ -831,6 +844,8 @@ private:
 	bool right = false;
 	bool up = false;
 	bool down = false;
+
+	float gamma_correction = 2.2f;
 
 	/// Application state
 	bool mouse_grab = false;
