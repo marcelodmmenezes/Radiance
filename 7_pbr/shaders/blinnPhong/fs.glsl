@@ -1,5 +1,10 @@
 #version 450 core
 
+struct AmbientLight
+{
+	vec3 color;
+};
+
 struct DirectionalLight
 {
 	vec3 direction;
@@ -14,7 +19,9 @@ in vec3 v_frag_pos;
 uniform sampler2D u_color_sampler;
 uniform sampler2D u_normal_sampler;
 
+uniform AmbientLight u_amb_light;
 uniform DirectionalLight u_dir_light;
+
 uniform vec3 u_view_pos;
 uniform float u_shininess;
 uniform bool u_bump_map_active;
@@ -42,6 +49,8 @@ void main()
 	vec3 tangent_view_dir = normalize(v_tbn * u_view_pos - tangent_frag_pos);
 	vec3 tangent_light_dir = normalize(v_tbn * (-u_dir_light.direction));
 
+	vec3 ambient = u_amb_light.color * tex;
+
 	float l_dot_n = max(dot(tangent_light_dir, normal), 0.0);
 	vec3 diffuse = tex * l_dot_n * u_dir_light.color;
 
@@ -50,7 +59,7 @@ void main()
 	float spec = pow(max(dot(half_dir, normal), 0.0), u_shininess);
 	vec3 specular = vec3(spec, spec, spec) * u_dir_light.color;
 
-	vec3 hdr_color = diffuse + specular;
+	vec3 hdr_color = ambient + diffuse + specular;
 
 	out_color.rgb = vec3(1.0) - exp(-hdr_color * u_exposure);
 	out_color = vec4(pow(out_color.rgb, vec3(1.0 / u_gamma)), 1.0);

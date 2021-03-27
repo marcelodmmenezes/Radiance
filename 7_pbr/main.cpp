@@ -11,7 +11,7 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-#define N_TEXTURES 2
+#define N_TEXTURES 4
 
 void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
@@ -35,10 +35,12 @@ public:
 			show_info,
 			fullscreen) 
 	{
-		dir_light.direction = glm::vec3(0.4f, -1.0f, -0.85f);
+		amb_light.color = glm::vec3(0.01f, 0.025f, 0.015f);
+
+		dir_light.direction = glm::vec3(-1.0f, -1.0f, -1.0f);
 		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
-		camera = FlyThroughCamera(glm::vec3(-1.0f, 0.5f, 4.0f), -20.0f, -10.0f);
+		camera = FlyThroughCamera(glm::vec3(0.0f, 1.0f, 4.0f), 0.0f, -20.0f);
 
 		model_matrix = glm::mat4(1.0f);
 	}
@@ -110,6 +112,8 @@ private:
 		GLint u_color_sampler_loc;
 		GLint u_normal_sampler_loc;
 
+		GLint u_amb_light_color_loc;
+
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
 
@@ -134,16 +138,30 @@ private:
 		GLint u_color_sampler_loc;
 		GLint u_normal_sampler_loc;
 
+		GLint u_has_metallic_map_loc;
+		GLint u_metallic_sampler_loc;
+		GLint u_metallic_loc;
+
+		GLint u_has_roughness_map_loc;
+		GLint u_roughness_sampler_loc;
+		GLint u_roughness_loc;
+
+		GLint u_amb_light_color_loc;
+
 		GLint u_dir_light_direction_loc;
 		GLint u_dir_light_color_loc;
 
 		GLint u_view_pos_loc;
-		GLint u_shininess_loc;
 
 		GLint u_bump_map_active_loc;
 
 		GLint u_gamma_loc;
 		GLint u_exposure_loc;
+	};
+
+	struct AmbientLight
+	{
+		glm::vec3 color;
 	};
 
 	struct DirectionalLight
@@ -202,23 +220,46 @@ private:
 
 		buildGUI();
 
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
+			return false;
+		}
+
 		updateCamera(delta_time);
 		glm::vec3 camera_position = camera.new_position;
 		glm::mat4 view_matrix = camera.getViewMatrix();
+
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
+			return false;
+		}
 
 		switch (current_program)
 		{
 		case 0:
 			blinnPhong(camera_position, view_matrix);
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
+			return false;
+		}
+
 			break;
 
 		case 1:
 			standardPBR(camera_position, view_matrix);
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
+			return false;
+		}
 			break;
 		}
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
+		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
+		{
+			return false;
+		}
 
 		return true;
 	}
@@ -242,6 +283,9 @@ private:
 		glUniform1i(blinn_phong.u_color_sampler_loc, 0);
 		glUniform1i(blinn_phong.u_normal_sampler_loc, 1);
 
+		glUniform3fv(blinn_phong.u_amb_light_color_loc,
+			1, glm::value_ptr(amb_light.color));
+
 		glUniform3fv(blinn_phong.u_dir_light_direction_loc,
 			1, glm::value_ptr(dir_light.direction));
 		glUniform3fv(blinn_phong.u_dir_light_color_loc,
@@ -250,7 +294,7 @@ private:
 		glUniform3fv(blinn_phong.u_view_pos_loc,
 			1, glm::value_ptr(camera_position));
 
-		glUniform1f(blinn_phong.u_shininess_loc, material_shineness);
+		glUniform1f(blinn_phong.u_shininess_loc, shininess);
 
 		glUniform1f(blinn_phong.u_bump_map_active_loc, bump_map_active);
 
@@ -277,6 +321,17 @@ private:
 		glUniform1i(standard_pbr.u_color_sampler_loc, 0);
 		glUniform1i(standard_pbr.u_normal_sampler_loc, 1);
 
+		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 2);
+		glUniform1f(standard_pbr.u_metallic_loc, metallic);
+
+		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 3);
+		glUniform1f(standard_pbr.u_roughness_loc, roughness);
+
+		glUniform3fv(standard_pbr.u_amb_light_color_loc,
+			1, glm::value_ptr(amb_light.color));
+
 		glUniform3fv(standard_pbr.u_dir_light_direction_loc,
 			1, glm::value_ptr(dir_light.direction));
 		glUniform3fv(standard_pbr.u_dir_light_color_loc,
@@ -284,8 +339,6 @@ private:
 
 		glUniform3fv(standard_pbr.u_view_pos_loc,
 			1, glm::value_ptr(camera_position));
-
-		glUniform1f(standard_pbr.u_shininess_loc, material_shineness);
 
 		glUniform1f(standard_pbr.u_bump_map_active_loc, bump_map_active);
 
@@ -327,7 +380,7 @@ private:
 		RadioButton("Blinn Phong", &current_program, 0);
 		RadioButton("Standard PBR", &current_program, 1);
 
-		Checkbox("Active", &bump_map_active);
+		Checkbox("Normal map", &bump_map_active);
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
@@ -346,6 +399,15 @@ private:
 		End();
 
 		/// LIGHTS
+		Begin("Ambient Light");
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+
+		ColorPicker3("Color", glm::value_ptr(amb_light.color));
+
+		End();
+
 		Begin("Directional Light");
 
 		Dummy(ImVec2(0.0f, 2.0f));
@@ -358,7 +420,7 @@ private:
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
 
-		ColorPicker4("Color", glm::value_ptr(dir_light.color));
+		ColorPicker3("Color", glm::value_ptr(dir_light.color));
 
 		End();
 
@@ -408,13 +470,25 @@ private:
 	{
 		using namespace ImGui;
 
-		SliderFloat("Shineness", &material_shineness, 1.0f, 64.0f);
+		SliderFloat("Shininess", &shininess, 1.0f, 64.0f);
 	}
 
 	void standardPBRGUI()
 	{
 		using namespace ImGui;
 
+		Checkbox("Use metallic map", &has_metallic_map);
+		Checkbox("Use roughness map", &has_roughness_map);
+
+		if (!has_metallic_map)
+		{
+			SliderFloat("Metallic", &metallic, 0.0f, 1.0f);
+		}
+
+		if (!has_roughness_map)
+		{
+			SliderFloat("Roughness", &roughness, 0.05f, 1.0f);
+		}
 	}
 
 	void updateCamera(float delta_time)
@@ -502,9 +576,11 @@ private:
 
 		blinn_phong.u_color_sampler_loc =
 			glGetUniformLocation(blinn_phong.id, "u_color_sampler");
-
 		blinn_phong.u_normal_sampler_loc =
 			glGetUniformLocation(blinn_phong.id, "u_normal_sampler");
+
+		blinn_phong.u_amb_light_color_loc =
+			glGetUniformLocation(blinn_phong.id, "u_amb_light.color");
 
 		blinn_phong.u_dir_light_direction_loc =
 			glGetUniformLocation(blinn_phong.id, "u_dir_light.direction");
@@ -531,6 +607,7 @@ private:
 		assert(blinn_phong.u_nor_transform_loc != -1);
 		assert(blinn_phong.u_color_sampler_loc != -1);
 		assert(blinn_phong.u_normal_sampler_loc != -1);
+		assert(blinn_phong.u_amb_light_color_loc != -1);
 		assert(blinn_phong.u_dir_light_color_loc != -1);
 		assert(blinn_phong.u_view_pos_loc != -1);
 		assert(blinn_phong.u_shininess_loc != -1);
@@ -588,9 +665,25 @@ private:
 
 		standard_pbr.u_color_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_color_sampler");
-
 		standard_pbr.u_normal_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_normal_sampler");
+
+		standard_pbr.u_has_metallic_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_metallic_map");
+		standard_pbr.u_metallic_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_metallic_sampler");
+		standard_pbr.u_metallic_loc =
+			glGetUniformLocation(standard_pbr.id, "u_metallic");
+
+		standard_pbr.u_has_roughness_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_roughness_map");
+		standard_pbr.u_roughness_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_roughness_sampler");
+		standard_pbr.u_roughness_loc =
+			glGetUniformLocation(standard_pbr.id, "u_roughness");
+
+		standard_pbr.u_amb_light_color_loc =
+			glGetUniformLocation(standard_pbr.id, "u_amb_light.color");
 
 		standard_pbr.u_dir_light_direction_loc =
 			glGetUniformLocation(standard_pbr.id, "u_dir_light.direction");
@@ -599,9 +692,6 @@ private:
 
 		standard_pbr.u_view_pos_loc =
 			glGetUniformLocation(standard_pbr.id, "u_view_pos");
-
-		standard_pbr.u_shininess_loc =
-			glGetUniformLocation(standard_pbr.id, "u_shininess");
 
 		standard_pbr.u_bump_map_active_loc =
 			glGetUniformLocation(standard_pbr.id, "u_bump_map_active");
@@ -617,9 +707,15 @@ private:
 		assert(standard_pbr.u_nor_transform_loc != -1);
 		assert(standard_pbr.u_color_sampler_loc != -1);
 		assert(standard_pbr.u_normal_sampler_loc != -1);
+		assert(standard_pbr.u_has_metallic_map_loc != -1);
+		assert(standard_pbr.u_metallic_sampler_loc != -1);
+		assert(standard_pbr.u_metallic_loc != -1);
+		assert(standard_pbr.u_has_roughness_map_loc != -1);
+		assert(standard_pbr.u_roughness_sampler_loc != -1);
+		assert(standard_pbr.u_roughness_loc != -1);
+		assert(standard_pbr.u_amb_light_color_loc != -1);
 		assert(standard_pbr.u_dir_light_color_loc != -1);
 		assert(standard_pbr.u_view_pos_loc != -1);
-		assert(standard_pbr.u_shininess_loc != -1);
 		assert(standard_pbr.u_bump_map_active_loc != -1);
 		assert(standard_pbr.u_gamma_loc != -1);
 		assert(standard_pbr.u_exposure_loc != -1);
@@ -659,8 +755,16 @@ private:
 		textures[1] = Texture2D("../res/materialBall/normal.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		textures[0].bind(0);
-		textures[1].bind(1);
+		textures[2] = Texture2D("../res/materialBall/metallic.png", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[3] = Texture2D("../res/materialBall/roughness.png", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		for (int i = 0; i < N_TEXTURES; ++i)
+		{
+			textures[i].bind(i);
+		}
 	}
 
 	bool createGeometry()
@@ -714,14 +818,20 @@ private:
 	/// Material
 	Texture textures[N_TEXTURES];
 
-	float material_shineness = 32.0f;
+	float shininess = 32.0f;
 	bool bump_map_active = true;
+
+	bool has_metallic_map = false;
+	float metallic = 0.0f;
+	bool has_roughness_map = false;
+	float roughness = 0.05f;
 
 	/// Object properties
 	DeviceMesh geometry;
 	glm::mat4 model_matrix;
 
 	/// Lights
+	AmbientLight amb_light;
 	DirectionalLight dir_light;
 
 	/// Camera
@@ -814,10 +924,13 @@ void windowResize(GLFWwindow* window, int width, int height)
 {
 	auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
 
-	app->setProjection(glm::perspective(
-		glm::radians(60.0f), (float)width / height, 0.1f, 100.0f));
+	if (width > 0 && height > 0)
+	{
+		app->setProjection(glm::perspective(
+			glm::radians(60.0f), (float)width / height, 0.1f, 100.0f));
 
-	glViewport(0, 0, width, height);
+		glViewport(0, 0, width, height);
+	}
 }
 
 int main()
