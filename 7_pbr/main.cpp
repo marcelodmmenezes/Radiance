@@ -211,55 +211,27 @@ private:
 
 	bool customLoop(double delta_time) override
 	{
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		buildGUI();
-
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
 
 		updateCamera(delta_time);
 		glm::vec3 camera_position = camera.new_position;
 		glm::mat4 view_matrix = camera.getViewMatrix();
 
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
-
 		switch (current_program)
 		{
 		case 0:
 			blinnPhong(camera_position, view_matrix);
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
-
 			break;
 
 		case 1:
 			standardPBR(camera_position, view_matrix);
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
 			break;
 		}
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
-		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
-		{
-			return false;
-		}
 
 		return true;
 	}

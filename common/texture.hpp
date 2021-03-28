@@ -10,6 +10,7 @@ class Texture
 {
 public:
 	Texture(std::string const& file_path);
+	Texture(std::string const& file_path, int width, int height);
 
 	Texture()
 	{}
@@ -25,10 +26,19 @@ public:
 
 	void bind(GLuint unit);
 
+	GLuint getId() const;
+	int getWidth() const;
+	int getHeight() const;
+	int getChannels() const;
+
 protected:
 	std::string path;
 
 	GLuint id;
+
+	int width;
+	int height;
+	int channels;
 };
 
 // TODO: support depth stencil texture
@@ -70,6 +80,31 @@ public:
 		std::string const& folder,
 		std::string const& extension,
 		int n_desired_channels,
+		GLint wrap_s,
+		GLint wrap_t,
+		GLint wrap_r,
+		GLint min_filter,
+		GLint mag_filter,
+		bool flip_on_load);
+};
+
+class Empty16FTextureCube : public Texture
+{
+public:
+	Empty16FTextureCube(
+		int width,
+		int height,
+		int channels,
+		GLint wrap_s,
+		GLint wrap_t,
+		GLint wrap_r);
+};
+
+class TextureHDREnvironment : public Texture
+{
+public:
+	TextureHDREnvironment(
+		std::string const& file_path,
 		GLint wrap_s,
 		GLint wrap_t,
 		GLint min_filter,

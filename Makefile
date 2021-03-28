@@ -6,7 +6,9 @@ subdirs = thirdParty \
 	3_clippingPlanes \
 	4_mipmapVis \
 	5_bumpMapping \
-	6_cubeMaps
+	6_cubeMaps \
+	7_pbr \
+	8_imageBasedLighting
 
 .PHONY: $(subdirs)
 

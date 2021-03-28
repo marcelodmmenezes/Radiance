@@ -281,6 +281,7 @@ private:
 		}
 
 		gl.destroyGeometry(geometry);
+		gl.destroyGeometry(skybox);
 	}
 
 	void buildGUI()
@@ -693,7 +694,7 @@ private:
 		OpenGLContext::checkErrors(__FILE__, __LINE__);
 
 		textures[2] = TextureCube("../res/skybox/saintPeterSquare/", "jpg", 3,
-			GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE,
 			GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR,
 			false);
 

@@ -1,7 +1,7 @@
 includes = -I$(TP) -I$(TP)/glm -I$(TP)/imgui
 
 TP = ../thirdParty
-objects = baseApp.o flyThroughCamera.o glContext.o objParser.o texture.o
+objects = baseApp.o flyThroughCamera.o glContext.o objParser.o texture.o renderbuffer.o framebuffer.o
 
 all: $(objects)
 
