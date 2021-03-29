@@ -13,7 +13,8 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-#define N_TEXTURES 4
+#define N_ENVIRONMENTS 3
+#define N_TEXTURES 5
 
 #define FBO_WIDTH 512
 #define FBO_HEIGHT 512
@@ -116,6 +117,7 @@ private:
 
 		GLint u_color_sampler_loc;
 		GLint u_normal_sampler_loc;
+		GLint u_ao_sampler_loc;
 
 		GLint u_has_metallic_map_loc;
 		GLint u_metallic_sampler_loc;
@@ -131,6 +133,12 @@ private:
 		GLint u_view_pos_loc;
 
 		GLint u_bump_map_active_loc;
+		GLint u_ao_map_active_loc;
+
+		GLint u_f_0_loc;
+		GLint u_fresnel_active_loc;
+		GLint u_ndf_active_loc;
+		GLint u_masking_active_loc;
 
 		GLint u_gamma_loc;
 		GLint u_exposure_loc;
@@ -181,7 +189,7 @@ private:
 			return false;
 		}
 
-		createEnvironmentCubeMap();
+		createEnvironments();
 		createTextures();
 
 		windowResize(window, window_width, window_height);
@@ -208,6 +216,9 @@ private:
 		updateCamera(delta_time);
 		glm::vec3 camera_position = camera.new_position;
 		glm::mat4 view_matrix = camera.getViewMatrix();
+
+		env_cube_texture[current_environment]->bind(0);
+		irr_cube_texture[current_environment]->bind(1);
 
 		standardPBR(camera_position, view_matrix);
 
@@ -257,13 +268,14 @@ private:
 
 		glUniform1i(standard_pbr.u_color_sampler_loc, 2);
 		glUniform1i(standard_pbr.u_normal_sampler_loc, 3);
+		glUniform1i(standard_pbr.u_ao_sampler_loc, 4);
 
 		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
-		glUniform1i(standard_pbr.u_metallic_sampler_loc, 4);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 5);
 		glUniform1f(standard_pbr.u_metallic_loc, metallic);
 
 		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
-		glUniform1i(standard_pbr.u_roughness_sampler_loc, 5);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 6);
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform3fv(standard_pbr.u_dir_light_direction_loc,
@@ -274,7 +286,13 @@ private:
 		glUniform3fv(standard_pbr.u_view_pos_loc,
 			1, glm::value_ptr(camera_position));
 
-		glUniform1f(standard_pbr.u_bump_map_active_loc, bump_map_active);
+		glUniform1i(standard_pbr.u_bump_map_active_loc, bump_map_active);
+		glUniform1i(standard_pbr.u_ao_map_active_loc, ao_map_active);
+
+		glUniform3fv(standard_pbr.u_f_0_loc, 1, glm::value_ptr(f_0));
+		glUniform1i(standard_pbr.u_fresnel_active_loc, fresnel_active);
+		glUniform1i(standard_pbr.u_ndf_active_loc, ndf_active);
+		glUniform1i(standard_pbr.u_masking_active_loc, masking_active);
 
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
 		glUniform1f(standard_pbr.u_exposure_loc, exposure);
@@ -297,11 +315,14 @@ private:
 			glDeleteProgram(skybox_program.id);
 		}
 
-		env_cube_texture->destroy();
-		delete env_cube_texture;
+		for (int i = 0; i < N_ENVIRONMENTS; ++i)
+		{
+			env_cube_texture[i]->destroy();
+			delete env_cube_texture[i];
 
-		irr_cube_texture->destroy();
-		delete irr_cube_texture;
+			irr_cube_texture[i]->destroy();
+			delete irr_cube_texture[i];
+		}
 
 		for (int i = 0; i < N_TEXTURES; ++i)
 		{
@@ -323,6 +344,7 @@ private:
 		Separator();
 
 		Checkbox("Normal map", &bump_map_active);
+		Checkbox("Ambient Occlusion map", &ao_map_active);
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
@@ -340,13 +362,37 @@ private:
 			SliderFloat("Roughness", &roughness, 0.05f, 1.0f);
 		}
 
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+
+		Text("BRDF");
+		Checkbox("NDF active", &ndf_active);
+		Checkbox("Masking active", &masking_active);
+		Checkbox("Fresnel active", &fresnel_active);
+
+		Text("Characteristic Specular Color");
+		ColorPicker3("", glm::value_ptr(f_0));
+
 		End();
 
-		/// SKYBOX
-		Begin("Skybox");
+		/// ENVIRONMENT
+		Begin("Environment");
+
+		Text("Map");
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
+
+		BeginGroup();
+		RadioButton("Gravel Plaza", &current_environment, 0);
+		RadioButton("Paper Mill", &current_environment, 1);
+		RadioButton("Winter Forest", &current_environment, 2);
+		EndGroup();
+
+		Dummy(ImVec2(0.0f, 2.0f));
+		Separator();
+
+		Text("Skybox");
 
 		BeginGroup();
 		RadioButton("Environment map", &skybox_sampler_unit, 0);
@@ -504,6 +550,8 @@ private:
 			glGetUniformLocation(standard_pbr.id, "u_color_sampler");
 		standard_pbr.u_normal_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_normal_sampler");
+		standard_pbr.u_ao_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_ao_sampler");
 
 		standard_pbr.u_has_metallic_map_loc =
 			glGetUniformLocation(standard_pbr.id, "u_has_metallic_map");
@@ -529,6 +577,17 @@ private:
 
 		standard_pbr.u_bump_map_active_loc =
 			glGetUniformLocation(standard_pbr.id, "u_bump_map_active");
+		standard_pbr.u_ao_map_active_loc =
+			glGetUniformLocation(standard_pbr.id, "u_ao_map_active");
+
+		standard_pbr.u_f_0_loc =
+			glGetUniformLocation(standard_pbr.id, "u_f_0");
+		standard_pbr.u_fresnel_active_loc =
+			glGetUniformLocation(standard_pbr.id, "u_fresnel_ative");
+		standard_pbr.u_ndf_active_loc =
+			glGetUniformLocation(standard_pbr.id, "u_ndf_active");
+		standard_pbr.u_masking_active_loc =
+			glGetUniformLocation(standard_pbr.id, "u_masking_active");
 
 		standard_pbr.u_gamma_loc =
 			glGetUniformLocation(standard_pbr.id, "u_gamma");
@@ -542,6 +601,7 @@ private:
 		assert(standard_pbr.u_irrandiance_sampler_loc != -1);
 		assert(standard_pbr.u_color_sampler_loc != -1);
 		assert(standard_pbr.u_normal_sampler_loc != -1);
+		assert(standard_pbr.u_ao_sampler_loc != -1);
 		assert(standard_pbr.u_has_metallic_map_loc != -1);
 		assert(standard_pbr.u_metallic_sampler_loc != -1);
 		assert(standard_pbr.u_metallic_loc != -1);
@@ -551,6 +611,11 @@ private:
 		assert(standard_pbr.u_dir_light_color_loc != -1);
 		assert(standard_pbr.u_view_pos_loc != -1);
 		assert(standard_pbr.u_bump_map_active_loc != -1);
+		assert(standard_pbr.u_ao_map_active_loc != -1);
+		assert(standard_pbr.u_f_0_loc != -1);
+		assert(standard_pbr.u_fresnel_active_loc != -1);
+		assert(standard_pbr.u_ndf_active_loc != -1);
+		assert(standard_pbr.u_masking_active_loc != -1);
 		assert(standard_pbr.u_gamma_loc != -1);
 		assert(standard_pbr.u_exposure_loc != -1);
 
@@ -698,10 +763,13 @@ private:
 		textures[1] = Texture2D("../res/materialBall/normal.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		textures[2] = Texture2D("../res/materialBall/metallic.png", 1,
+		textures[2] = Texture2D("../res/materialBall/ao.png", 1,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		textures[3] = Texture2D("../res/materialBall/roughness.png", 3,
+		textures[3] = Texture2D("../res/materialBall/metallic.png", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[4] = Texture2D("../res/materialBall/roughness.png", 1,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
 		for (int i = 0; i < N_TEXTURES; ++i)
@@ -810,11 +878,45 @@ private:
 		return true;
 	}
 
-	void createEnvironmentCubeMap()
+	void createEnvironments()
 	{
-		std::cout << "\nCreating environment cube map ... ";
+		std::cout << "\n";
 
-		env_cube_texture = new Empty16FTextureCube(
+		std::vector<std::pair<std::string, std::string>> files
+		{
+			{
+				"../res/environmentMaps/gravelPlaza.hdr",
+				"../res/environmentMaps/gravelPlazaIrradiance.hdr",
+			},
+			{
+				"../res/environmentMaps/paperMill.hdr",
+				"../res/environmentMaps/paperMillIrradiance.hdr",
+			},
+			{
+				"../res/environmentMaps/winterForest.hdr",
+				"../res/environmentMaps/winterForestIrradiance.hdr",
+			}
+		};
+
+		for (size_t i = 0; i < files.size(); ++i)
+		{
+			createEnvironmentCubeMap(i, files[i]);
+		}
+
+		env_cube_texture[current_environment]->bind(0);
+		irr_cube_texture[current_environment]->bind(1);
+
+		std::cout << "\n";
+	}
+
+	void createEnvironmentCubeMap(
+		size_t index,
+		std::pair<std::string, std::string> const& files)
+	{
+		std::cout << "Creating environment cube map: "
+			<< files.first << " ... ";
+
+		env_cube_texture[index] = new Empty16FTextureCube(
 			FBO_WIDTH,
 			FBO_HEIGHT,
 			3,
@@ -822,7 +924,7 @@ private:
 			GL_CLAMP_TO_EDGE,
 			GL_CLAMP_TO_EDGE);
 
-		irr_cube_texture = new Empty16FTextureCube(
+		irr_cube_texture[index] = new Empty16FTextureCube(
 			FBO_WIDTH,
 			FBO_HEIGHT,
 			3,
@@ -830,16 +932,16 @@ private:
 			GL_CLAMP_TO_EDGE,
 			GL_CLAMP_TO_EDGE);
 
-		env_source_texture = new TextureHDREnvironment(
-			"../res/environmentMaps/gravelPlaza.hdr",
+		env_source_texture[index] = new TextureHDREnvironment(
+			files.first,
 			GL_CLAMP_TO_EDGE,
 			GL_CLAMP_TO_EDGE,
 			GL_LINEAR,
 			GL_LINEAR,
 			true);
 
-		irr_source_texture = new TextureHDREnvironment(
-			"../res/environmentMaps/gravelPlazaIrradiance.hdr",
+		irr_source_texture[index] = new TextureHDREnvironment(
+			files.second,
 			GL_CLAMP_TO_EDGE,
 			GL_CLAMP_TO_EDGE,
 			GL_LINEAR,
@@ -885,8 +987,8 @@ private:
 				glm::vec3(0.0f, -1.0f, 0.0f))
 		};
 
-		env_source_texture->bind(0);
-		irr_source_texture->bind(1);
+		env_source_texture[index]->bind(0);
+		irr_source_texture[index]->bind(1);
 
 		glUseProgram(to_cube_map.id);
 
@@ -904,7 +1006,7 @@ private:
 			glUniform1i(to_cube_map.u_env_map_sampler_loc, 0);
 
 			env_framebuffer.attachCubeMapTexture(
-				GL_COLOR_ATTACHMENT0, *env_cube_texture, 0, i);
+				GL_COLOR_ATTACHMENT0, *env_cube_texture[index], 0, i);
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -914,7 +1016,7 @@ private:
 			glUniform1i(to_cube_map.u_env_map_sampler_loc, 1);
 
 			env_framebuffer.attachCubeMapTexture(
-				GL_COLOR_ATTACHMENT0, *irr_cube_texture, 0, i);
+				GL_COLOR_ATTACHMENT0, *irr_cube_texture[index], 0, i);
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -924,23 +1026,22 @@ private:
 
 		Framebuffer::bindDefault();
 
-		env_cube_texture->bind(0);
-		irr_cube_texture->bind(1);
+		env_source_texture[index]->destroy();
+		delete env_source_texture[index];
 
-		env_source_texture->destroy();
-		delete env_source_texture;
+		irr_source_texture[index]->destroy();
+		delete irr_source_texture[index];
 
-		irr_source_texture->destroy();
-		delete irr_source_texture;
-
-		std::cout << "DONE\n\n";
+		std::cout << "DONE\n";
 	}
 
 	/// Environment cube map
-	Empty16FTextureCube* env_cube_texture;
-	Empty16FTextureCube* irr_cube_texture;
-	TextureHDREnvironment* env_source_texture;
-	TextureHDREnvironment* irr_source_texture;
+	int current_environment = 0;
+
+	Empty16FTextureCube* env_cube_texture[N_ENVIRONMENTS];
+	Empty16FTextureCube* irr_cube_texture[N_ENVIRONMENTS];
+	TextureHDREnvironment* env_source_texture[N_ENVIRONMENTS];
+	TextureHDREnvironment* irr_source_texture[N_ENVIRONMENTS];
 
 	/// Programs
 	StandardPBRProgram standard_pbr;
@@ -952,11 +1053,17 @@ private:
 
 	float shininess = 32.0f;
 	bool bump_map_active = true;
+	bool ao_map_active = true;
 
 	bool has_metallic_map = false;
 	float metallic = 0.0f;
 	bool has_roughness_map = false;
 	float roughness = 0.05f;
+
+	glm::vec3 f_0 = glm::vec3(0.04);
+	bool fresnel_active = true;
+	bool ndf_active = true;
+	bool masking_active = true;
 
 	/// Skybox
 	int skybox_sampler_unit = 0;

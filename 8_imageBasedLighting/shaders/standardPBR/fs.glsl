@@ -20,6 +20,7 @@ uniform samplerCube u_irradiance_sampler;
 
 uniform sampler2D u_color_sampler;
 uniform sampler2D u_normal_sampler;
+uniform sampler2D u_ao_sampler;
 uniform sampler2D u_metallic_sampler;
 uniform sampler2D u_roughness_sampler;
 
@@ -30,6 +31,12 @@ uniform DirectionalLight u_dir_light;
 
 uniform vec3 u_view_pos;
 uniform bool u_bump_map_active;
+uniform bool u_ao_map_active;
+
+uniform vec3 u_f_0;
+uniform bool u_fresnel_ative;
+uniform bool u_ndf_active;
+uniform bool u_masking_active;
 
 uniform float u_gamma;
 uniform float u_exposure;
@@ -83,8 +90,7 @@ void main()
 		roughness = texture(u_roughness_sampler, v_tex).r;
 	}
 
-	vec3 f_0 = vec3(0.04);
-	f_0 = mix(f_0, albedo, metallic);
+	vec3 f_0 = mix(u_f_0, albedo, metallic);
 
 	vec3 normal;
 
@@ -107,12 +113,29 @@ void main()
 	float n_dot_v = max(dot(normal, view), 0.0);
 	float h_dot_v = max(dot(halfway, view), 0.0);
 
-	// Diffuse + specular
+	// DirectionalLight
+	vec3 f = fresnelSchlick(h_dot_v, f_0);
 	float ndf = distributionGGX(n_dot_h, roughness);
 	float g = geometrySmith(n_dot_v, n_dot_l, roughness);
-	vec3 f = fresnelSchlick(h_dot_v, f_0);
 
-	vec3 brdf = (ndf * g * f) / (4 * n_dot_v * n_dot_l + 0.001);
+	vec3 brdf = vec3(1.0f);
+
+	if (u_ndf_active)
+	{
+		brdf *= vec3(ndf);
+	}
+
+	if (u_masking_active)
+	{
+		brdf *= vec3(g);
+	}
+
+	if (u_fresnel_ative)
+	{
+		brdf *= f;
+	}
+
+	brdf /= (4 * n_dot_v * n_dot_l + 0.001);
 
 	vec3 k_d = (vec3(1.0) - f) * (1.0 - metallic);
 
@@ -120,10 +143,17 @@ void main()
 	vec3 specular = brdf;
 
 	// Ambient
+	float ao = 1.0;
+
+	if (u_ao_map_active)
+	{
+		ao = texture(u_ao_sampler, v_tex).r;
+	}
+
 	f = fresnelSchlick(n_dot_v, f_0);
 	k_d = (vec3(1.0) - f) * (1.0 - metallic);
 	vec3 irradiance = texture(u_irradiance_sampler, normal).rgb;
-	vec3 ambient = k_d * irradiance * albedo;
+	vec3 ambient = k_d * irradiance * albedo * ao;
 
 	// Result
 	vec3 hdr_color = ambient + ((diffuse + specular) * u_dir_light.color * n_dot_l);
