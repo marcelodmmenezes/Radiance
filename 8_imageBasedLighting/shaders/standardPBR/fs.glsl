@@ -152,7 +152,7 @@ void main()
 
 	f = fresnelSchlick(n_dot_v, f_0);
 	k_d = (vec3(1.0) - f) * (1.0 - metallic);
-	vec3 irradiance = texture(u_irradiance_sampler, normal).rgb;
+	vec3 irradiance = texture(u_irradiance_sampler, v_tbn_inv * normal).rgb;
 	vec3 ambient = k_d * irradiance * albedo * ao;
 
 	// Result
