@@ -2,34 +2,29 @@
 
 #define PI 3.1415926535
 
-struct DirectionalLight
-{
-	vec3 direction;
-	vec3 color;
-};
-
-in mat3 v_tbn;
-in mat3 v_tbn_inv;
 in vec2 v_tex;
-in vec3 v_frag_pos;
+in mat3 v_tbn;
+in vec3 v_l;
+in vec3 v_v;
+in vec3 v_h;
 
-uniform bool u_has_metallic_map;
-uniform bool u_has_roughness_map;
+uniform vec3 u_light_color;
 
 uniform samplerCube u_irradiance_sampler;
+
 
 uniform sampler2D u_color_sampler;
 uniform sampler2D u_normal_sampler;
 uniform sampler2D u_ao_sampler;
-uniform sampler2D u_metallic_sampler;
-uniform sampler2D u_roughness_sampler;
 
+uniform bool u_has_metallic_map;
+uniform sampler2D u_metallic_sampler;
 uniform float u_metallic;
+
+uniform bool u_has_roughness_map;
+uniform sampler2D u_roughness_sampler;
 uniform float u_roughness;
 
-uniform DirectionalLight u_dir_light;
-
-uniform vec3 u_view_pos;
 uniform bool u_bump_map_active;
 uniform bool u_ao_map_active;
 
@@ -92,26 +87,25 @@ void main()
 
 	vec3 f_0 = mix(u_f_0, albedo, metallic);
 
-	vec3 normal;
+	vec3 n;
 
 	if (u_bump_map_active)
 	{
-		normal = normalize(texture(u_normal_sampler, v_tex).rgb * 2.0 - 1.0);
+		n = normalize(texture(u_normal_sampler, v_tex).rgb * 2.0 - 1.0);
 	}
 	else
 	{
-		normal = vec3(0.0, 0.0, 1.0);
+		n = vec3(0.0, 0.0, 1.0);
 	}
 
-	vec3 position = v_tbn * v_frag_pos;
-	vec3 view = normalize(v_tbn * u_view_pos - position);
-	vec3 light = normalize(v_tbn * (-u_dir_light.direction));
-	vec3 halfway = normalize(view + light);
+	vec3 v = normalize(v_v);
+	vec3 l = normalize(v_l);
+	vec3 h = normalize(v_h);
 
-	float n_dot_l = max(dot(normal, light), 0.0);
-	float n_dot_h = max(dot(normal, halfway), 0.0);
-	float n_dot_v = max(dot(normal, view), 0.0);
-	float h_dot_v = max(dot(halfway, view), 0.0);
+	float n_dot_l = max(dot(n, l), 0.0);
+	float n_dot_h = max(dot(n, h), 0.0);
+	float n_dot_v = max(dot(n, v), 0.0);
+	float h_dot_v = max(dot(h, v), 0.0);
 
 	// DirectionalLight
 	vec3 f = fresnelSchlick(h_dot_v, f_0);
@@ -152,11 +146,11 @@ void main()
 
 	f = fresnelSchlick(n_dot_v, f_0);
 	k_d = (vec3(1.0) - f) * (1.0 - metallic);
-	vec3 irradiance = texture(u_irradiance_sampler, v_tbn_inv * normal).rgb;
+	vec3 irradiance = texture(u_irradiance_sampler, v_tbn * n).rgb;
 	vec3 ambient = k_d * irradiance * albedo * ao;
 
 	// Result
-	vec3 hdr_color = ambient + ((diffuse + specular) * u_dir_light.color * n_dot_l);
+	vec3 hdr_color = ambient + ((diffuse + specular) * u_light_color * n_dot_l);
 
 	out_color.rgb = vec3(1.0) - exp(-hdr_color * u_exposure);
 	out_color = vec4(pow(out_color.rgb, vec3(1.0 / u_gamma)), 1.0);

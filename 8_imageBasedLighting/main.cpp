@@ -127,8 +127,8 @@ private:
 		GLint u_roughness_sampler_loc;
 		GLint u_roughness_loc;
 
-		GLint u_dir_light_direction_loc;
-		GLint u_dir_light_color_loc;
+		GLint u_light_dir_loc;
+		GLint u_light_color_loc;
 
 		GLint u_view_pos_loc;
 
@@ -278,9 +278,9 @@ private:
 		glUniform1i(standard_pbr.u_roughness_sampler_loc, 6);
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
-		glUniform3fv(standard_pbr.u_dir_light_direction_loc,
+		glUniform3fv(standard_pbr.u_light_dir_loc,
 			1, glm::value_ptr(dir_light.direction));
-		glUniform3fv(standard_pbr.u_dir_light_color_loc,
+		glUniform3fv(standard_pbr.u_light_color_loc,
 			1, glm::value_ptr(dir_light.color));
 
 		glUniform3fv(standard_pbr.u_view_pos_loc,
@@ -529,10 +529,6 @@ private:
 		{
 			return false;
 		}
-		else
-		{
-			std::cout << "SUCCESS\n";
-		}
 
 		standard_pbr.u_model_matrix_loc =
 			glGetUniformLocation(standard_pbr.id, "u_model_matrix");
@@ -542,6 +538,14 @@ private:
 			glGetUniformLocation(standard_pbr.id, "u_projection_matrix");
 		standard_pbr.u_nor_transform_loc =
 			glGetUniformLocation(standard_pbr.id, "u_nor_transform");
+
+		standard_pbr.u_light_dir_loc =
+			glGetUniformLocation(standard_pbr.id, "u_light_dir");
+		standard_pbr.u_view_pos_loc =
+			glGetUniformLocation(standard_pbr.id, "u_view_pos");
+
+		standard_pbr.u_light_color_loc =
+			glGetUniformLocation(standard_pbr.id, "u_light_color");
 
 		standard_pbr.u_irrandiance_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_irradiance_sampler");
@@ -567,14 +571,6 @@ private:
 		standard_pbr.u_roughness_loc =
 			glGetUniformLocation(standard_pbr.id, "u_roughness");
 
-		standard_pbr.u_dir_light_direction_loc =
-			glGetUniformLocation(standard_pbr.id, "u_dir_light.direction");
-		standard_pbr.u_dir_light_color_loc =
-			glGetUniformLocation(standard_pbr.id, "u_dir_light.color");
-
-		standard_pbr.u_view_pos_loc =
-			glGetUniformLocation(standard_pbr.id, "u_view_pos");
-
 		standard_pbr.u_bump_map_active_loc =
 			glGetUniformLocation(standard_pbr.id, "u_bump_map_active");
 		standard_pbr.u_ao_map_active_loc =
@@ -598,26 +594,38 @@ private:
 		assert(standard_pbr.u_view_pos_loc != -1);
 		assert(standard_pbr.u_projection_matrix_loc != -1);
 		assert(standard_pbr.u_nor_transform_loc != -1);
+
+		assert(standard_pbr.u_light_dir_loc != -1);
+		assert(standard_pbr.u_view_pos_loc != -1);
+
+		assert(standard_pbr.u_light_color_loc != -1);
+
 		assert(standard_pbr.u_irrandiance_sampler_loc != -1);
+
 		assert(standard_pbr.u_color_sampler_loc != -1);
 		assert(standard_pbr.u_normal_sampler_loc != -1);
 		assert(standard_pbr.u_ao_sampler_loc != -1);
+
 		assert(standard_pbr.u_has_metallic_map_loc != -1);
 		assert(standard_pbr.u_metallic_sampler_loc != -1);
 		assert(standard_pbr.u_metallic_loc != -1);
+
 		assert(standard_pbr.u_has_roughness_map_loc != -1);
 		assert(standard_pbr.u_roughness_sampler_loc != -1);
 		assert(standard_pbr.u_roughness_loc != -1);
-		assert(standard_pbr.u_dir_light_color_loc != -1);
-		assert(standard_pbr.u_view_pos_loc != -1);
+
 		assert(standard_pbr.u_bump_map_active_loc != -1);
 		assert(standard_pbr.u_ao_map_active_loc != -1);
+
 		assert(standard_pbr.u_f_0_loc != -1);
 		assert(standard_pbr.u_fresnel_active_loc != -1);
 		assert(standard_pbr.u_ndf_active_loc != -1);
 		assert(standard_pbr.u_masking_active_loc != -1);
+
 		assert(standard_pbr.u_gamma_loc != -1);
 		assert(standard_pbr.u_exposure_loc != -1);
+
+		std::cout << "SUCCESS\n";
 
 		return true;
 	}
