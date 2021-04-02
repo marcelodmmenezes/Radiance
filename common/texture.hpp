@@ -97,7 +97,8 @@ public:
 		int channels,
 		GLint wrap_s,
 		GLint wrap_t,
-		GLint wrap_r);
+		GLint wrap_r,
+		bool allocate_mipmap_space);
 };
 
 class TextureHDREnvironment : public Texture

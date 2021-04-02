@@ -390,7 +390,8 @@ Empty16FTextureCube::Empty16FTextureCube(
 	int channels,
 	GLint wrap_s,
 	GLint wrap_t,
-	GLint wrap_r)
+	GLint wrap_r,
+	bool allocate_mipmap_space)
 	:
 	Texture("Empty 16F Texture Cube", width, height)
 {
@@ -432,13 +433,23 @@ Empty16FTextureCube::Empty16FTextureCube(
 			assert(false);
 	}
 
-	glTextureStorage2D(id, 1, internal_format, width, height);
-
 	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrap_s);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrap_t);
 	glTextureParameteri(id, GL_TEXTURE_WRAP_R, wrap_r);
-	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	if (allocate_mipmap_space)
+	{
+		GLsizei n_mipmap_levels = 1 + floor(std::log2(std::max(width, height)));
+
+		glTextureStorage2D(id, n_mipmap_levels, internal_format, width, height);
+		glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	}
+	else
+	{
+		glTextureStorage2D(id, 1, internal_format, width, height);
+		glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	}
 }
 
 TextureHDREnvironment::TextureHDREnvironment(

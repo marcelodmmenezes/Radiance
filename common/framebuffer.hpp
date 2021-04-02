@@ -21,23 +21,29 @@ public:
 		Texture const& texture,
 		GLint mipmap_level);
 
+	void detachTexture(GLenum attachment);
+
 	void attachCubeMapTexture(
 		GLenum attachment,
 		Texture const& texture,
 		GLint mipmap_level,
 		GLint layer);
 
+	void detachCubeMapTexture(GLenum attachment);
+
 	void attachRenderbuffer(
 		GLenum attachment,
 		Renderbuffer const& renderbuffer);
+
+	void detachRenderbuffer(GLenum attachment);
 
 	void destroy();
 
 	void bind(); 
 
-private:
 	void checkStatus();
 
+private:
 	GLuint id;
 };
 

@@ -16,8 +16,10 @@
 #define N_ENVIRONMENTS 3
 #define N_TEXTURES 5
 
-#define FBO_WIDTH 512
-#define FBO_HEIGHT 512
+#define FBO_ENV_WIDTH 512
+#define FBO_ENV_HEIGHT 512
+#define FBO_SPEC_WIDTH 128
+#define FBO_SPEC_HEIGHT 128
 
 void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
@@ -144,7 +146,7 @@ private:
 		GLint u_exposure_loc;
 	};
 
-	struct ToCubeMapProgram
+	struct IrradianceProgram
 	{
 		GLuint id;
 
@@ -152,6 +154,17 @@ private:
 		GLint u_projection_matrix_loc;
 
 		GLint u_env_map_sampler_loc;
+	};
+
+	struct SpecularMapProgram
+	{
+		GLuint id;
+
+		GLint u_view_matrix_loc;
+		GLint u_projection_matrix_loc;
+
+		GLint u_env_map_sampler_loc;
+		GLint u_roughness_loc;
 	};
 
 	struct SkyboxProgram
@@ -162,6 +175,8 @@ private:
 		GLint u_projection_matrix_loc;
 
 		GLint u_cube_sampler_loc;
+
+		GLint u_mipmap_level_loc;
 
 		GLint u_gamma_loc;
 		GLint u_exposure_loc;
@@ -181,7 +196,8 @@ private:
 		glfwSetWindowSizeCallback(window, windowResize);
 
 		if (!createStandardPBRProgram() ||
-			!createToCubeMapProgram() ||
+			!createIrradianceProgram() ||
+			!createSpecularMapProgram() ||
 			!createSkyboxProgram() ||
 			!createGeometry() ||
 			!createCube())
@@ -198,6 +214,7 @@ private:
 
 		gl.enable(GL_DEPTH_TEST);
 		gl.enable(GL_CULL_FACE);
+		gl.enable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
 		{
@@ -219,6 +236,7 @@ private:
 
 		env_cube_texture[current_environment]->bind(0);
 		irr_cube_texture[current_environment]->bind(1);
+		spec_cube_texture[current_environment]->bind(2);
 
 		standardPBR(camera_position, view_matrix);
 
@@ -236,6 +254,7 @@ private:
 			1, GL_FALSE, glm::value_ptr(projection));
 
 		glUniform1i(skybox_program.u_cube_sampler_loc, skybox_sampler_unit);
+		glUniform1f(skybox_program.u_mipmap_level_loc, skybox_mipmap_level);
 
 		glUniform1f(skybox_program.u_gamma_loc, gamma_correction);
 		glUniform1f(skybox_program.u_exposure_loc, exposure);
@@ -266,16 +285,16 @@ private:
 
 		glUniform1i(standard_pbr.u_irrandiance_sampler_loc, 1);
 
-		glUniform1i(standard_pbr.u_color_sampler_loc, 2);
-		glUniform1i(standard_pbr.u_normal_sampler_loc, 3);
-		glUniform1i(standard_pbr.u_ao_sampler_loc, 4);
+		glUniform1i(standard_pbr.u_color_sampler_loc, 3);
+		glUniform1i(standard_pbr.u_normal_sampler_loc, 4);
+		glUniform1i(standard_pbr.u_ao_sampler_loc, 5);
 
 		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
-		glUniform1i(standard_pbr.u_metallic_sampler_loc, 5);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 6);
 		glUniform1f(standard_pbr.u_metallic_loc, metallic);
 
 		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
-		glUniform1i(standard_pbr.u_roughness_sampler_loc, 6);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 7);
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform3fv(standard_pbr.u_light_dir_loc,
@@ -305,9 +324,9 @@ private:
 			glDeleteProgram(standard_pbr.id);
 		}
 
-		if (glIsProgram(to_cube_map.id))
+		if (glIsProgram(irradiance_program.id))
 		{
-			glDeleteProgram(to_cube_map.id);
+			glDeleteProgram(irradiance_program.id);
 		}
 
 		if (glIsProgram(skybox_program.id))
@@ -322,6 +341,9 @@ private:
 
 			irr_cube_texture[i]->destroy();
 			delete irr_cube_texture[i];
+
+			spec_cube_texture[i]->destroy();
+			delete spec_cube_texture[i];
 		}
 
 		for (int i = 0; i < N_TEXTURES; ++i)
@@ -397,7 +419,14 @@ private:
 		BeginGroup();
 		RadioButton("Environment map", &skybox_sampler_unit, 0);
 		RadioButton("Irradiance map", &skybox_sampler_unit, 1);
+		RadioButton("Specular map", &skybox_sampler_unit, 2);
 		EndGroup();
+
+		if (skybox_sampler_unit == 2)
+		{
+			int n_mipmap_levels = floor(std::log2(std::max(FBO_SPEC_WIDTH, FBO_SPEC_HEIGHT)));
+			SliderFloat("Mipmap level", &skybox_mipmap_level, 0.0, n_mipmap_levels);
+		}
 
 		End();
 
@@ -630,12 +659,12 @@ private:
 		return true;
 	}
 
-	bool createToCubeMapProgram()
+	bool createIrradianceProgram()
 	{
 		std::vector<ShaderInfo> shaders;
 
-		std::ifstream vs_file("shaders/toCubeMap/vs.glsl");
-		std::ifstream fs_file("shaders/toCubeMap/fs.glsl");
+		std::ifstream vs_file("shaders/irradiance/vs.glsl");
+		std::ifstream fs_file("shaders/irradiance/fs.glsl");
 
 		if (!vs_file)
 		{
@@ -649,34 +678,84 @@ private:
 			return false;
 		}
 
-		std::cout << "Creating ToCubeMap program ... ";
+		std::cout << "Creating irradiance program ... ";
 
 		readShader(vs_file, fs_file, shaders);
 
 		bool success;
 
-		to_cube_map.id = gl.createProgram(shaders, success);
+		irradiance_program.id = gl.createProgram(shaders, success);
 
 		if (!success)
 		{
 			return false;
 		}
-		else
+
+		irradiance_program.u_view_matrix_loc =
+			glGetUniformLocation(irradiance_program.id, "u_view_matrix");
+		irradiance_program.u_projection_matrix_loc =
+			glGetUniformLocation(irradiance_program.id, "u_projection_matrix");
+
+		irradiance_program.u_env_map_sampler_loc =
+			glGetUniformLocation(irradiance_program.id, "u_env_map_sampler");
+
+		assert(irradiance_program.u_view_matrix_loc != -1);
+		assert(irradiance_program.u_projection_matrix_loc != -1);
+		assert(irradiance_program.u_env_map_sampler_loc != -1);
+
+		std::cout << "SUCCESS\n";
+
+		return true;
+	}
+
+	bool createSpecularMapProgram()
+	{
+		std::vector<ShaderInfo> shaders;
+
+		std::ifstream vs_file("shaders/specularMap/vs.glsl");
+		std::ifstream fs_file("shaders/specularMap/fs.glsl");
+
+		if (!vs_file)
 		{
-			std::cout << "SUCCESS\n";
+			std::cerr << "ERROR: Could not open vertex shader\n";
+			return false;
 		}
 
-		to_cube_map.u_view_matrix_loc =
-			glGetUniformLocation(to_cube_map.id, "u_view_matrix");
-		to_cube_map.u_projection_matrix_loc =
-			glGetUniformLocation(to_cube_map.id, "u_projection_matrix");
+		if (!fs_file)
+		{
+			std::cerr << "ERROR: Could not open fragment shader\n";
+			return false;
+		}
 
-		to_cube_map.u_env_map_sampler_loc =
-			glGetUniformLocation(to_cube_map.id, "u_env_map_sampler");
+		std::cout << "Creating diffuseMap program ... ";
 
-		assert(to_cube_map.u_view_matrix_loc != -1);
-		assert(to_cube_map.u_projection_matrix_loc != -1);
-		assert(to_cube_map.u_env_map_sampler_loc != -1);
+		readShader(vs_file, fs_file, shaders);
+
+		bool success;
+
+		specular_program.id = gl.createProgram(shaders, success);
+
+		if (!success)
+		{
+			return false;
+		}
+
+		specular_program.u_view_matrix_loc =
+			glGetUniformLocation(specular_program.id, "u_view_matrix");
+		specular_program.u_projection_matrix_loc =
+			glGetUniformLocation(specular_program.id, "u_projection_matrix");
+
+		specular_program.u_env_map_sampler_loc =
+			glGetUniformLocation(specular_program.id, "u_env_map_sampler");
+		specular_program.u_roughness_loc =
+			glGetUniformLocation(specular_program.id, "u_roughness");
+
+		assert(specular_program.u_view_matrix_loc != -1);
+		assert(specular_program.u_projection_matrix_loc != -1);
+		assert(specular_program.u_env_map_sampler_loc != -1);
+		assert(specular_program.u_roughness_loc != -1);
+
+		std::cout << "SUCCESS\n";
 
 		return true;
 	}
@@ -700,7 +779,7 @@ private:
 			return false;
 		}
 
-		std::cout << "Creating ToCubeMap program ... ";
+		std::cout << "Creating skybox program ... ";
 
 		readShader(vs_file, fs_file, shaders);
 
@@ -712,10 +791,6 @@ private:
 		{
 			return false;
 		}
-		else
-		{
-			std::cout << "SUCCESS\n";
-		}
 
 		skybox_program.u_view_matrix_loc =
 			glGetUniformLocation(skybox_program.id, "u_view_matrix");
@@ -725,6 +800,9 @@ private:
 		skybox_program.u_cube_sampler_loc =
 			glGetUniformLocation(skybox_program.id, "u_cube_sampler");
 
+		skybox_program.u_mipmap_level_loc =
+			glGetUniformLocation(skybox_program.id, "u_mipmap_level");
+
 		skybox_program.u_gamma_loc =
 			glGetUniformLocation(skybox_program.id, "u_gamma");
 		skybox_program.u_exposure_loc =
@@ -733,8 +811,11 @@ private:
 		assert(skybox_program.u_view_matrix_loc != -1);
 		assert(skybox_program.u_projection_matrix_loc != -1);
 		assert(skybox_program.u_cube_sampler_loc != -1);
+		assert(skybox_program.u_mipmap_level_loc != -1);
 		assert(skybox_program.u_gamma_loc != -1);
 		assert(skybox_program.u_exposure_loc != -1);
+
+		std::cout << "SUCCESS\n";
 
 		return true;
 	}
@@ -782,7 +863,7 @@ private:
 
 		for (int i = 0; i < N_TEXTURES; ++i)
 		{
-			textures[i].bind(i + 2);
+			textures[i].bind(i + 3);
 		}
 	}
 
@@ -876,7 +957,7 @@ private:
 		bool success;
 
 		cube = gl.createPackedStaticGeometry(
-			to_cube_map.id, f_buffers, i_buffers, indices, success);
+			irradiance_program.id, f_buffers, i_buffers, indices, success);
 
 		if (!success)
 		{
@@ -905,61 +986,6 @@ private:
 				"../res/environmentMaps/winterForestIrradiance.hdr",
 			}
 		};
-
-		for (size_t i = 0; i < files.size(); ++i)
-		{
-			createEnvironmentCubeMap(i, files[i]);
-		}
-
-		env_cube_texture[current_environment]->bind(0);
-		irr_cube_texture[current_environment]->bind(1);
-
-		std::cout << "\n";
-	}
-
-	void createEnvironmentCubeMap(
-		size_t index,
-		std::pair<std::string, std::string> const& files)
-	{
-		std::cout << "Creating environment cube map: "
-			<< files.first << " ... ";
-
-		env_cube_texture[index] = new Empty16FTextureCube(
-			FBO_WIDTH,
-			FBO_HEIGHT,
-			3,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE);
-
-		irr_cube_texture[index] = new Empty16FTextureCube(
-			FBO_WIDTH,
-			FBO_HEIGHT,
-			3,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE);
-
-		env_source_texture[index] = new TextureHDREnvironment(
-			files.first,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE,
-			GL_LINEAR,
-			GL_LINEAR,
-			true);
-
-		irr_source_texture[index] = new TextureHDREnvironment(
-			files.second,
-			GL_CLAMP_TO_EDGE,
-			GL_CLAMP_TO_EDGE,
-			GL_LINEAR,
-			GL_LINEAR,
-			true);
-
-		Renderbuffer env_renderbuffer(GL_DEPTH_COMPONENT24, FBO_WIDTH, FBO_HEIGHT);
-		Framebuffer env_framebuffer;
-
-		env_framebuffer.attachRenderbuffer(GL_DEPTH_ATTACHMENT, env_renderbuffer);
 
 		glm::mat4 env_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 		glm::mat4 env_views[]
@@ -995,36 +1021,107 @@ private:
 				glm::vec3(0.0f, -1.0f, 0.0f))
 		};
 
+		for (size_t i = 0; i < files.size(); ++i)
+		{
+			createEnvironmentCubeMap(i, env_projection, env_views, files[i]);
+		}
+
+		env_cube_texture[current_environment]->bind(0);
+		irr_cube_texture[current_environment]->bind(1);
+		spec_cube_texture[current_environment]->bind(2);
+
+		std::cout << "\n";
+	}
+
+	void createEnvironmentCubeMap(
+		size_t index,
+		glm::mat4 const& env_projection,
+		glm::mat4 const* env_views,
+		std::pair<std::string, std::string> const& files)
+	{
+		std::cout << "Creating environment cube map: "
+			<< files.first << " ... ";
+
+		env_cube_texture[index] = new Empty16FTextureCube(
+			FBO_ENV_WIDTH,
+			FBO_ENV_HEIGHT,
+			3,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			false);
+
+		irr_cube_texture[index] = new Empty16FTextureCube(
+			FBO_ENV_WIDTH,
+			FBO_ENV_HEIGHT,
+			3,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			false);
+
+		spec_cube_texture[index] = new Empty16FTextureCube(
+			FBO_SPEC_WIDTH,
+			FBO_SPEC_HEIGHT,
+			3,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			true);
+
+		env_source_texture[index] = new TextureHDREnvironment(
+			files.first,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_LINEAR,
+			GL_LINEAR,
+			true);
+
+		irr_source_texture[index] = new TextureHDREnvironment(
+			files.second,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_LINEAR,
+			GL_LINEAR,
+			true);
+
+		Renderbuffer env_renderbuffer(GL_DEPTH_COMPONENT24, FBO_ENV_WIDTH, FBO_ENV_HEIGHT);
+		Framebuffer env_framebuffer;
+
+		env_framebuffer.attachRenderbuffer(GL_DEPTH_ATTACHMENT, env_renderbuffer);
+
 		env_source_texture[index]->bind(0);
 		irr_source_texture[index]->bind(1);
 
-		glUseProgram(to_cube_map.id);
+		glUseProgram(irradiance_program.id);
 
-		glUniformMatrix4fv(to_cube_map.u_projection_matrix_loc,
+		glUniformMatrix4fv(irradiance_program.u_projection_matrix_loc,
 			1, GL_FALSE, glm::value_ptr(env_projection));
 
-		glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
+		glViewport(0, 0, FBO_ENV_WIDTH, FBO_ENV_HEIGHT);
 
 		env_framebuffer.bind();
 
-		for (unsigned i = 0; i < 6; ++i)
+		for (int i = 0; i < 6; ++i)
 		{
-			glUniformMatrix4fv(to_cube_map.u_view_matrix_loc,
+			glUniformMatrix4fv(irradiance_program.u_view_matrix_loc,
 				1, GL_FALSE, glm::value_ptr(env_views[i]));
-			glUniform1i(to_cube_map.u_env_map_sampler_loc, 0);
+			glUniform1i(irradiance_program.u_env_map_sampler_loc, 0);
 
 			env_framebuffer.attachCubeMapTexture(
 				GL_COLOR_ATTACHMENT0, *env_cube_texture[index], 0, i);
+			env_framebuffer.checkStatus();
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			glBindVertexArray(cube.vao_id);
 			glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
 
-			glUniform1i(to_cube_map.u_env_map_sampler_loc, 1);
+			glUniform1i(irradiance_program.u_env_map_sampler_loc, 1);
 
 			env_framebuffer.attachCubeMapTexture(
 				GL_COLOR_ATTACHMENT0, *irr_cube_texture[index], 0, i);
+			env_framebuffer.checkStatus();
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -1032,13 +1129,64 @@ private:
 			glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
 		}
 
-		Framebuffer::bindDefault();
+		env_renderbuffer.destroy();
+
+		std::cout << "specular map ... ";
+
+		env_cube_texture[index]->bind(0);
+
+		glUseProgram(specular_program.id);
+
+		glUniformMatrix4fv(specular_program.u_projection_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(env_projection));
+
+		glUniform1i(specular_program.u_env_map_sampler_loc, 0);
+
+		int n_mipmap_levels = 1 +
+			floor(std::log2(std::max(FBO_SPEC_WIDTH, FBO_SPEC_HEIGHT)));
+		int mip_width = FBO_SPEC_WIDTH;
+		int mip_height = FBO_SPEC_HEIGHT;
+
+		for (int i = 0; i < n_mipmap_levels; ++i)
+		{
+			float r = (float)i / (float)(n_mipmap_levels - 1);
+			glUniform1f(specular_program.u_roughness_loc, r);
+
+			Renderbuffer rb(GL_DEPTH_COMPONENT24, mip_width, mip_height);
+
+			env_framebuffer.detachCubeMapTexture(GL_COLOR_ATTACHMENT0);
+			env_framebuffer.attachRenderbuffer(GL_DEPTH_ATTACHMENT, rb);
+
+			glViewport(0, 0, mip_width, mip_height);
+
+			for (int j = 0; j < 6; ++j)
+			{
+				glUniformMatrix4fv(specular_program.u_view_matrix_loc,
+					1, GL_FALSE, glm::value_ptr(env_views[j]));
+
+				env_framebuffer.attachCubeMapTexture(
+					GL_COLOR_ATTACHMENT0, *spec_cube_texture[index], i, j);
+				env_framebuffer.checkStatus();
+
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+				glBindVertexArray(cube.vao_id);
+				glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
+			}
+
+			mip_width /= 2;
+			mip_height /= 2;
+
+			rb.destroy();
+		}
 
 		env_source_texture[index]->destroy();
 		delete env_source_texture[index];
 
 		irr_source_texture[index]->destroy();
 		delete irr_source_texture[index];
+
+		Framebuffer::bindDefault();
 
 		std::cout << "DONE\n";
 	}
@@ -1048,12 +1196,15 @@ private:
 
 	Empty16FTextureCube* env_cube_texture[N_ENVIRONMENTS];
 	Empty16FTextureCube* irr_cube_texture[N_ENVIRONMENTS];
+	Empty16FTextureCube* spec_cube_texture[N_ENVIRONMENTS];
+
 	TextureHDREnvironment* env_source_texture[N_ENVIRONMENTS];
 	TextureHDREnvironment* irr_source_texture[N_ENVIRONMENTS];
 
 	/// Programs
 	StandardPBRProgram standard_pbr;
-	ToCubeMapProgram to_cube_map;
+	IrradianceProgram irradiance_program;
+	SpecularMapProgram specular_program;
 	SkyboxProgram skybox_program;
 
 	/// Material
@@ -1075,6 +1226,7 @@ private:
 
 	/// Skybox
 	int skybox_sampler_unit = 0;
+	float skybox_mipmap_level = 0;
 
 	/// Object properties
 	DeviceMesh geometry;

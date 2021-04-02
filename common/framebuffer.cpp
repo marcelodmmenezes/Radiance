@@ -25,8 +25,11 @@ void Framebuffer::attachTexture(
 {
 	glNamedFramebufferTexture(id, attachment,
 		texture.getId(), mipmap_level);
+}
 
-	checkStatus();
+void Framebuffer::detachTexture(GLenum attachment)
+{
+	glNamedFramebufferTexture(id, attachment, 0, 0);
 }
 
 void Framebuffer::attachCubeMapTexture(
@@ -37,8 +40,11 @@ void Framebuffer::attachCubeMapTexture(
 {
 	glNamedFramebufferTextureLayer(id, attachment,
 		texture.getId(), mipmap_level, layer);
+}
 
-	checkStatus();
+void Framebuffer::detachCubeMapTexture(GLenum attachment)
+{
+	glNamedFramebufferTextureLayer(id, attachment, 0, 0, 0);
 }
 
 void Framebuffer::attachRenderbuffer(
@@ -47,8 +53,12 @@ void Framebuffer::attachRenderbuffer(
 {
 	glNamedFramebufferRenderbuffer(id, attachment,
 		GL_RENDERBUFFER, renderbuffer.getId());
+}
 
-	checkStatus();
+void Framebuffer::detachRenderbuffer(GLenum attachment)
+{
+	glNamedFramebufferRenderbuffer(id, attachment,
+		GL_RENDERBUFFER, 0);
 }
 
 void Framebuffer::destroy()
