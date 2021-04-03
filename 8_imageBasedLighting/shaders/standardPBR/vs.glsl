@@ -10,14 +10,11 @@ uniform mat4 u_view_matrix;
 uniform mat4 u_projection_matrix;
 uniform mat3 u_nor_transform;
 
-uniform vec3 u_light_dir;
 uniform vec3 u_view_pos;
 
 out vec2 v_tex;
 out mat3 v_tbn;
-
 out vec3 v_view_pos;
-out vec3 v_light_pos;
 out vec3 v_frag_pos;
 
 void main()
@@ -36,7 +33,6 @@ void main()
 	mat3 tbn_inv = transpose(v_tbn);
 
 	v_view_pos = tbn_inv * u_view_pos;
-	v_light_pos = tbn_inv * -u_light_dir;
 	v_frag_pos = tbn_inv * vec3(world_pos);
 }
 

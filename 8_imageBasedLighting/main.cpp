@@ -46,9 +46,6 @@ public:
 			show_info,
 			fullscreen) 
 	{
-		dir_light.direction = glm::vec3(-1.0f, -1.0f, -1.0f);
-		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
-
 		camera = FlyThroughCamera(glm::vec3(0.0f, 1.0f, 4.0f), 0.0f, -20.0f);
 	}
 
@@ -124,32 +121,25 @@ private:
 		GLint u_projection_matrix_loc;
 		GLint u_nor_transform_loc;
 
-		GLint u_irrandiance_sampler_loc;
-
-		GLint u_color_sampler_loc;
-		GLint u_normal_sampler_loc;
-		GLint u_ao_sampler_loc;
-
-		GLint u_has_metallic_map_loc;
-		GLint u_metallic_sampler_loc;
-		GLint u_metallic_loc;
-
-		GLint u_has_roughness_map_loc;
-		GLint u_roughness_sampler_loc;
-		GLint u_roughness_loc;
-
-		GLint u_light_dir_loc;
-		GLint u_light_color_loc;
-
 		GLint u_view_pos_loc;
 
-		GLint u_bump_map_active_loc;
-		GLint u_ao_map_active_loc;
+		GLint u_irrandiance_sampler_loc;
+		GLint u_specular_sampler_loc;
+		GLint u_brdf_lut_sampler_loc;
 
-		GLint u_f_0_loc;
-		GLint u_fresnel_active_loc;
-		GLint u_ndf_active_loc;
-		GLint u_masking_active_loc;
+		GLint u_has_normal_map_loc;
+		GLint u_has_ao_map_loc;
+		GLint u_has_metallic_map_loc;
+		GLint u_has_roughness_map_loc;
+
+		GLint u_albedo_sampler_loc;
+		GLint u_normal_sampler_loc;
+		GLint u_ao_sampler_loc;
+		GLint u_metallic_sampler_loc;
+		GLint u_roughness_sampler_loc;
+
+		GLint u_metallic_loc;
+		GLint u_roughness_loc;
 
 		GLint u_gamma_loc;
 		GLint u_exposure_loc;
@@ -194,12 +184,6 @@ private:
 
 		GLint u_gamma_loc;
 		GLint u_exposure_loc;
-	};
-
-	struct DirectionalLight
-	{
-		glm::vec3 direction;
-		glm::vec3 color;
 	};
 
 	bool customInit() override
@@ -279,35 +263,26 @@ private:
 			1, GL_FALSE, glm::value_ptr(glm::mat3(
 				glm::transpose(glm::inverse(model_matrix)))));
 
-		glUniform1i(standard_pbr.u_irrandiance_sampler_loc, 1);
-
-		glUniform1i(standard_pbr.u_color_sampler_loc, 4);
-		glUniform1i(standard_pbr.u_normal_sampler_loc, 5);
-		glUniform1i(standard_pbr.u_ao_sampler_loc, 6);
-
-		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
-		glUniform1i(standard_pbr.u_metallic_sampler_loc, 7);
-		glUniform1f(standard_pbr.u_metallic_loc, metallic);
-
-		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
-		glUniform1i(standard_pbr.u_roughness_sampler_loc, 8);
-		glUniform1f(standard_pbr.u_roughness_loc, roughness);
-
-		glUniform3fv(standard_pbr.u_light_dir_loc,
-			1, glm::value_ptr(dir_light.direction));
-		glUniform3fv(standard_pbr.u_light_color_loc,
-			1, glm::value_ptr(dir_light.color));
-
 		glUniform3fv(standard_pbr.u_view_pos_loc,
 			1, glm::value_ptr(camera_position));
 
-		glUniform1i(standard_pbr.u_bump_map_active_loc, bump_map_active);
-		glUniform1i(standard_pbr.u_ao_map_active_loc, ao_map_active);
+		glUniform1i(standard_pbr.u_irrandiance_sampler_loc, 1);
+		glUniform1i(standard_pbr.u_specular_sampler_loc, 2);
+		glUniform1i(standard_pbr.u_brdf_lut_sampler_loc, 3);
 
-		glUniform3fv(standard_pbr.u_f_0_loc, 1, glm::value_ptr(f_0));
-		glUniform1i(standard_pbr.u_fresnel_active_loc, fresnel_active);
-		glUniform1i(standard_pbr.u_ndf_active_loc, ndf_active);
-		glUniform1i(standard_pbr.u_masking_active_loc, masking_active);
+		glUniform1i(standard_pbr.u_has_normal_map_loc, true);
+		glUniform1i(standard_pbr.u_has_ao_map_loc, true);
+		glUniform1i(standard_pbr.u_has_metallic_map_loc, true);
+		glUniform1i(standard_pbr.u_has_roughness_map_loc, true);
+
+		glUniform1i(standard_pbr.u_albedo_sampler_loc, 4);
+		glUniform1i(standard_pbr.u_normal_sampler_loc, 5);
+		glUniform1i(standard_pbr.u_ao_sampler_loc, 6);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 7);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 8);
+
+		glUniform1f(standard_pbr.u_metallic_loc, 1.0f);
+		glUniform1f(standard_pbr.u_roughness_loc, 1.0f);
 
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
 		glUniform1f(standard_pbr.u_exposure_loc, exposure);
@@ -395,70 +370,16 @@ private:
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
 
-		Checkbox("Normal map", &bump_map_active);
-		Checkbox("Ambient Occlusion map", &ao_map_active);
-
-		if (bump_map_active)
-		{
-			Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
-		}
-
-		if (ao_map_active)
-		{
-			if (bump_map_active)
-			{
-				SameLine();
-			}
-
-			Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
-		}
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		Checkbox("Use metallic map", &has_metallic_map);
-		Checkbox("Use roughness map", &has_roughness_map);
-
-		if (has_metallic_map)
-		{
-			Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
-		}
-
-		if (has_roughness_map)
-		{
-			if (has_metallic_map)
-			{
-				SameLine();
-			}
-
-			Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
-		}
-
-		if (!has_metallic_map)
-		{
-			SliderFloat("Metallic", &metallic, 0.0f, 1.0f);
-		}
-
-		if (!has_roughness_map)
-		{
-			SliderFloat("Roughness", &roughness, 0.05f, 1.0f);
-		}
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		Text("BRDF");
-
+		Text("Normal Map");
+		Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
+		Text("AO Map");
+		Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
+		Text("Metallic Map");
+		Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
+		Text("Roughness Map");
+		Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
+		Text("BRDF LUT");
 		Image((void*)(intptr_t)brdf_lut.getId(), ImVec2(128, 128));
-		SameLine();
-		Text("LUT");
-
-		Checkbox("NDF active", &ndf_active);
-		Checkbox("Masking active", &masking_active);
-		Checkbox("Fresnel active", &fresnel_active);
-
-		Text("Characteristic Specular Color");
-		ColorPicker3("", glm::value_ptr(f_0));
 
 		End();
 
@@ -492,23 +413,6 @@ private:
 			int n_mipmap_levels = floor(std::log2(std::max(FBO_SPEC_WIDTH, FBO_SPEC_HEIGHT)));
 			SliderFloat("Mipmap level", &skybox_mipmap_level, 0.0, n_mipmap_levels);
 		}
-
-		End();
-
-		/// LIGHTS
-		Begin("Directional Light");
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		SliderFloat("Direction X", &dir_light.direction.x, -1.0f, 1.0f);
-		SliderFloat("Direction Y", &dir_light.direction.y, -1.0f, 1.0f);
-		SliderFloat("Direction Z", &dir_light.direction.z, -1.0f, 1.0f);
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		ColorPicker3("Color", glm::value_ptr(dir_light.color));
 
 		End();
 
@@ -633,51 +537,40 @@ private:
 		standard_pbr.u_nor_transform_loc =
 			glGetUniformLocation(standard_pbr.id, "u_nor_transform");
 
-		standard_pbr.u_light_dir_loc =
-			glGetUniformLocation(standard_pbr.id, "u_light_dir");
 		standard_pbr.u_view_pos_loc =
 			glGetUniformLocation(standard_pbr.id, "u_view_pos");
 
-		standard_pbr.u_light_color_loc =
-			glGetUniformLocation(standard_pbr.id, "u_light_color");
-
 		standard_pbr.u_irrandiance_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_irradiance_sampler");
+		standard_pbr.u_specular_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_specular_sampler");
+		standard_pbr.u_brdf_lut_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_brdf_lut_sampler");
 
-		standard_pbr.u_color_sampler_loc =
-			glGetUniformLocation(standard_pbr.id, "u_color_sampler");
+		standard_pbr.u_has_normal_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_normal_map");
+		standard_pbr.u_has_ao_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_ao_map");
+		standard_pbr.u_has_metallic_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_metallic_map");
+		standard_pbr.u_has_roughness_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_roughness_map");
+
+		standard_pbr.u_albedo_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_albedo_sampler");
 		standard_pbr.u_normal_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_normal_sampler");
 		standard_pbr.u_ao_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_ao_sampler");
-
-		standard_pbr.u_has_metallic_map_loc =
-			glGetUniformLocation(standard_pbr.id, "u_has_metallic_map");
 		standard_pbr.u_metallic_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_metallic_sampler");
-		standard_pbr.u_metallic_loc =
-			glGetUniformLocation(standard_pbr.id, "u_metallic");
-
-		standard_pbr.u_has_roughness_map_loc =
-			glGetUniformLocation(standard_pbr.id, "u_has_roughness_map");
 		standard_pbr.u_roughness_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_roughness_sampler");
+
+		standard_pbr.u_metallic_loc =
+			glGetUniformLocation(standard_pbr.id, "u_metallic");
 		standard_pbr.u_roughness_loc =
 			glGetUniformLocation(standard_pbr.id, "u_roughness");
-
-		standard_pbr.u_bump_map_active_loc =
-			glGetUniformLocation(standard_pbr.id, "u_bump_map_active");
-		standard_pbr.u_ao_map_active_loc =
-			glGetUniformLocation(standard_pbr.id, "u_ao_map_active");
-
-		standard_pbr.u_f_0_loc =
-			glGetUniformLocation(standard_pbr.id, "u_f_0");
-		standard_pbr.u_fresnel_active_loc =
-			glGetUniformLocation(standard_pbr.id, "u_fresnel_ative");
-		standard_pbr.u_ndf_active_loc =
-			glGetUniformLocation(standard_pbr.id, "u_ndf_active");
-		standard_pbr.u_masking_active_loc =
-			glGetUniformLocation(standard_pbr.id, "u_masking_active");
 
 		standard_pbr.u_gamma_loc =
 			glGetUniformLocation(standard_pbr.id, "u_gamma");
@@ -689,32 +582,25 @@ private:
 		assert(standard_pbr.u_projection_matrix_loc != -1);
 		assert(standard_pbr.u_nor_transform_loc != -1);
 
-		assert(standard_pbr.u_light_dir_loc != -1);
 		assert(standard_pbr.u_view_pos_loc != -1);
 
-		assert(standard_pbr.u_light_color_loc != -1);
-
 		assert(standard_pbr.u_irrandiance_sampler_loc != -1);
+		assert(standard_pbr.u_specular_sampler_loc != -1);
+		assert(standard_pbr.u_brdf_lut_sampler_loc != -1);
 
-		assert(standard_pbr.u_color_sampler_loc != -1);
+		assert(standard_pbr.u_has_normal_map_loc != -1);
+		assert(standard_pbr.u_has_ao_map_loc != -1);
+		assert(standard_pbr.u_has_metallic_map_loc != -1);
+		assert(standard_pbr.u_has_roughness_map_loc != -1);
+
+		assert(standard_pbr.u_albedo_sampler_loc != -1);
 		assert(standard_pbr.u_normal_sampler_loc != -1);
 		assert(standard_pbr.u_ao_sampler_loc != -1);
-
-		assert(standard_pbr.u_has_metallic_map_loc != -1);
 		assert(standard_pbr.u_metallic_sampler_loc != -1);
-		assert(standard_pbr.u_metallic_loc != -1);
-
-		assert(standard_pbr.u_has_roughness_map_loc != -1);
 		assert(standard_pbr.u_roughness_sampler_loc != -1);
+
+		assert(standard_pbr.u_metallic_loc != -1);
 		assert(standard_pbr.u_roughness_loc != -1);
-
-		assert(standard_pbr.u_bump_map_active_loc != -1);
-		assert(standard_pbr.u_ao_map_active_loc != -1);
-
-		assert(standard_pbr.u_f_0_loc != -1);
-		assert(standard_pbr.u_fresnel_active_loc != -1);
-		assert(standard_pbr.u_ndf_active_loc != -1);
-		assert(standard_pbr.u_masking_active_loc != -1);
 
 		assert(standard_pbr.u_gamma_loc != -1);
 		assert(standard_pbr.u_exposure_loc != -1);
@@ -1404,20 +1290,6 @@ private:
 	/// Material
 	Texture textures[N_MATERIAL_TEXTURES];
 
-	float shininess = 32.0f;
-	bool bump_map_active = true;
-	bool ao_map_active = true;
-
-	bool has_metallic_map = true;
-	float metallic = 0.0f;
-	bool has_roughness_map = true;
-	float roughness = 0.05f;
-
-	glm::vec3 f_0 = glm::vec3(0.04);
-	bool fresnel_active = true;
-	bool ndf_active = true;
-	bool masking_active = true;
-
 	/// Skybox
 	int skybox_sampler_unit = 0;
 	float skybox_mipmap_level = 0;
@@ -1428,9 +1300,6 @@ private:
 	DeviceMesh quad;
 	glm::mat4 model_matrix;
 	glm::vec3 rotation{ 0.0f, 0.0f, 0.0f };
-
-	/// Lights
-	DirectionalLight dir_light;
 
 	/// Camera
 	FlyThroughCamera camera;
