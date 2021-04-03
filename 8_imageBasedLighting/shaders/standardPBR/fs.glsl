@@ -4,14 +4,14 @@
 
 in vec2 v_tex;
 in mat3 v_tbn;
-in vec3 v_l;
-in vec3 v_v;
-in vec3 v_h;
+
+in vec3 v_view_pos;
+in vec3 v_light_pos;
+in vec3 v_frag_pos;
 
 uniform vec3 u_light_color;
 
 uniform samplerCube u_irradiance_sampler;
-
 
 uniform sampler2D u_color_sampler;
 uniform sampler2D u_normal_sampler;
@@ -98,9 +98,9 @@ void main()
 		n = vec3(0.0, 0.0, 1.0);
 	}
 
-	vec3 v = normalize(v_v);
-	vec3 l = normalize(v_l);
-	vec3 h = normalize(v_h);
+	vec3 v = normalize(v_view_pos - v_frag_pos);
+	vec3 l = normalize(v_light_pos);
+	vec3 h = normalize(v + l);
 
 	float n_dot_l = max(dot(n, l), 0.0);
 	float n_dot_h = max(dot(n, h), 0.0);

@@ -242,6 +242,43 @@ Texture2D::Texture2D(
 	}
 }
 
+Texture2D::Texture2D(
+	int width,
+	int height,
+	GLenum internal_format,
+	GLint wrap_s,
+	GLint wrap_t,
+	GLint min_filter,
+	GLint mag_filter)
+	:
+	Texture("Empty", width, height)
+{
+	glCreateTextures(GL_TEXTURE_2D, 1, &id);
+
+	if (!glIsTexture(id))
+	{
+		std::cerr << "ERROR: Could not create texture from " + path + '\n';
+		abort();
+	}
+
+	GLsizei n_mipmap_levels = 1;
+
+	if (min_filter == GL_NEAREST_MIPMAP_NEAREST ||
+		min_filter == GL_NEAREST_MIPMAP_LINEAR ||
+		min_filter == GL_LINEAR_MIPMAP_NEAREST ||
+		min_filter == GL_LINEAR_MIPMAP_LINEAR)
+	{
+		n_mipmap_levels = 1 + floor(std::log2(std::max(width, height)));
+	}
+
+	glTextureStorage2D(id, n_mipmap_levels, internal_format, width, height);
+
+	glTextureParameteri(id, GL_TEXTURE_WRAP_S, wrap_s);
+	glTextureParameteri(id, GL_TEXTURE_WRAP_T, wrap_t);
+	glTextureParameteri(id, GL_TEXTURE_MIN_FILTER, min_filter);
+	glTextureParameteri(id, GL_TEXTURE_MAG_FILTER, mag_filter);
+}
+
 TextureCube::TextureCube(
 	std::string const& folder,
 	std::string const& extension,

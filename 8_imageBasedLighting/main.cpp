@@ -14,12 +14,15 @@
 #define WINDOW_HEIGHT 768
 
 #define N_ENVIRONMENTS 3
-#define N_TEXTURES 5
+#define N_MATERIAL_TEXTURES 10
 
 #define FBO_ENV_WIDTH 512
 #define FBO_ENV_HEIGHT 512
 #define FBO_SPEC_WIDTH 128
 #define FBO_SPEC_HEIGHT 128
+
+#define BRDF_LUT_WIDTH 512
+#define BRDF_LUT_HEIGHT 512
 
 void onKey(GLFWwindow* window, int key, int, int action, int mods);
 void onMouseMove(GLFWwindow* window, double xpos, double ypos);
@@ -47,8 +50,6 @@ public:
 		dir_light.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		camera = FlyThroughCamera(glm::vec3(0.0f, 1.0f, 4.0f), 0.0f, -20.0f);
-
-		model_matrix = glm::mat4(1.0f);
 	}
 
 	~Application()
@@ -103,6 +104,14 @@ public:
 	void setProjection(glm::mat4&& proj)
 	{
 		projection = proj;
+	}
+
+	void setWindowSize(int width, int height)
+	{
+		window_width = width;
+		window_height = height;
+
+		glViewport(0, 0, window_width, window_height);
 	}
 
 private:
@@ -167,6 +176,11 @@ private:
 		GLint u_roughness_loc;
 	};
 
+	struct BRDFConvolutionProgram
+	{
+		GLuint id;
+	};
+
 	struct SkyboxProgram
 	{
 		GLint id;
@@ -198,14 +212,17 @@ private:
 		if (!createStandardPBRProgram() ||
 			!createIrradianceProgram() ||
 			!createSpecularMapProgram() ||
+			!createBRDFConvolutionProgram() ||
 			!createSkyboxProgram() ||
 			!createGeometry() ||
-			!createCube())
+			!createCube() ||
+			!createQuad())
 		{
 			return false;
 		}
 
 		createEnvironments();
+		createBRDFLUT();
 		createTextures();
 
 		windowResize(window, window_width, window_height);
@@ -240,29 +257,8 @@ private:
 
 		standardPBR(camera_position, view_matrix);
 
-		glBindVertexArray(geometry.vao_id);
-		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
-
-		glDepthFunc(GL_LEQUAL);
-
-		glUseProgram(skybox_program.id);
-
-		glUniformMatrix4fv(skybox_program.u_view_matrix_loc,
-			1, GL_FALSE, glm::value_ptr(
-				glm::mat4(glm::mat3(view_matrix))));
-		glUniformMatrix4fv(skybox_program.u_projection_matrix_loc,
-			1, GL_FALSE, glm::value_ptr(projection));
-
-		glUniform1i(skybox_program.u_cube_sampler_loc, skybox_sampler_unit);
-		glUniform1f(skybox_program.u_mipmap_level_loc, skybox_mipmap_level);
-
-		glUniform1f(skybox_program.u_gamma_loc, gamma_correction);
-		glUniform1f(skybox_program.u_exposure_loc, exposure);
-
-		glBindVertexArray(cube.vao_id);
-		glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
-
-		glDepthFunc(GL_LESS);
+		drawGeometry();
+		drawSkybox(view_matrix);
 
 		return true;
 	}
@@ -285,16 +281,16 @@ private:
 
 		glUniform1i(standard_pbr.u_irrandiance_sampler_loc, 1);
 
-		glUniform1i(standard_pbr.u_color_sampler_loc, 3);
-		glUniform1i(standard_pbr.u_normal_sampler_loc, 4);
-		glUniform1i(standard_pbr.u_ao_sampler_loc, 5);
+		glUniform1i(standard_pbr.u_color_sampler_loc, 4);
+		glUniform1i(standard_pbr.u_normal_sampler_loc, 5);
+		glUniform1i(standard_pbr.u_ao_sampler_loc, 6);
 
 		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
-		glUniform1i(standard_pbr.u_metallic_sampler_loc, 6);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 7);
 		glUniform1f(standard_pbr.u_metallic_loc, metallic);
 
 		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
-		glUniform1i(standard_pbr.u_roughness_sampler_loc, 7);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 8);
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform3fv(standard_pbr.u_light_dir_loc,
@@ -317,22 +313,43 @@ private:
 		glUniform1f(standard_pbr.u_exposure_loc, exposure);
 	}
 
+	void drawGeometry()
+	{
+		glBindVertexArray(geometry.vao_id);
+		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
+	}
+
+	void drawSkybox(glm::mat4 const& view_matrix)
+	{
+		glDepthFunc(GL_LEQUAL);
+
+		glUseProgram(skybox_program.id);
+
+		glUniformMatrix4fv(skybox_program.u_view_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(
+				glm::mat4(glm::mat3(view_matrix))));
+		glUniformMatrix4fv(skybox_program.u_projection_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(projection));
+
+		glUniform1i(skybox_program.u_cube_sampler_loc, skybox_sampler_unit);
+		glUniform1f(skybox_program.u_mipmap_level_loc, skybox_mipmap_level);
+
+		glUniform1f(skybox_program.u_gamma_loc, gamma_correction);
+		glUniform1f(skybox_program.u_exposure_loc, exposure);
+
+		glBindVertexArray(cube.vao_id);
+		glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
+
+		glDepthFunc(GL_LESS);
+	}
+
 	void customDestroy() override
 	{
-		if (glIsProgram(standard_pbr.id))
-		{
-			glDeleteProgram(standard_pbr.id);
-		}
-
-		if (glIsProgram(irradiance_program.id))
-		{
-			glDeleteProgram(irradiance_program.id);
-		}
-
-		if (glIsProgram(skybox_program.id))
-		{
-			glDeleteProgram(skybox_program.id);
-		}
+		glDeleteProgram(standard_pbr.id);
+		glDeleteProgram(irradiance_program.id);
+		glDeleteProgram(specular_program.id);
+		glDeleteProgram(brdf_convolution_program.id);
+		glDeleteProgram(skybox_program.id);
 
 		for (int i = 0; i < N_ENVIRONMENTS; ++i)
 		{
@@ -346,13 +363,16 @@ private:
 			delete spec_cube_texture[i];
 		}
 
-		for (int i = 0; i < N_TEXTURES; ++i)
+		brdf_lut.destroy();
+
+		for (int i = 0; i < N_MATERIAL_TEXTURES; ++i)
 		{
 			textures[i].destroy();
 		}
 
 		gl.destroyGeometry(geometry);
 		gl.destroyGeometry(cube);
+		gl.destroyGeometry(quad);
 	}
 
 	void buildGUI()
@@ -360,7 +380,17 @@ private:
 		using namespace ImGui;
 
 		/// OBJECT
-		Begin("Material");
+		Begin("Object properties");
+
+		Text("Rotate");
+		SliderFloat("X", &rotation.x, -180.0f, 180.0f);
+		SliderFloat("Y", &rotation.y, -180.0f, 180.0f);
+		SliderFloat("Z", &rotation.z, -180.0f, 180.0f);
+
+		model_matrix =
+			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f)) *
+			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f)) *
+			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
@@ -368,11 +398,41 @@ private:
 		Checkbox("Normal map", &bump_map_active);
 		Checkbox("Ambient Occlusion map", &ao_map_active);
 
+		if (bump_map_active)
+		{
+			Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
+		}
+
+		if (ao_map_active)
+		{
+			if (bump_map_active)
+			{
+				SameLine();
+			}
+
+			Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
+		}
+
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
 
 		Checkbox("Use metallic map", &has_metallic_map);
 		Checkbox("Use roughness map", &has_roughness_map);
+
+		if (has_metallic_map)
+		{
+			Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
+		}
+
+		if (has_roughness_map)
+		{
+			if (has_metallic_map)
+			{
+				SameLine();
+			}
+
+			Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
+		}
 
 		if (!has_metallic_map)
 		{
@@ -388,6 +448,11 @@ private:
 		Separator();
 
 		Text("BRDF");
+
+		Image((void*)(intptr_t)brdf_lut.getId(), ImVec2(128, 128));
+		SameLine();
+		Text("LUT");
+
 		Checkbox("NDF active", &ndf_active);
 		Checkbox("Masking active", &masking_active);
 		Checkbox("Fresnel active", &fresnel_active);
@@ -727,7 +792,7 @@ private:
 			return false;
 		}
 
-		std::cout << "Creating diffuseMap program ... ";
+		std::cout << "Creating specular map program ... ";
 
 		readShader(vs_file, fs_file, shaders);
 
@@ -754,6 +819,43 @@ private:
 		assert(specular_program.u_projection_matrix_loc != -1);
 		assert(specular_program.u_env_map_sampler_loc != -1);
 		assert(specular_program.u_roughness_loc != -1);
+
+		std::cout << "SUCCESS\n";
+
+		return true;
+	}
+
+	bool createBRDFConvolutionProgram()
+	{
+		std::vector<ShaderInfo> shaders;
+
+		std::ifstream vs_file("shaders/brdfConvolution/vs.glsl");
+		std::ifstream fs_file("shaders/brdfConvolution/fs.glsl");
+
+		if (!vs_file)
+		{
+			std::cerr << "ERROR: Could not open vertex shader\n";
+			return false;
+		}
+
+		if (!fs_file)
+		{
+			std::cerr << "ERROR: Could not open fragment shader\n";
+			return false;
+		}
+
+		std::cout << "Creating brdf convolution program ... ";
+
+		readShader(vs_file, fs_file, shaders);
+
+		bool success;
+
+		brdf_convolution_program.id = gl.createProgram(shaders, success);
+
+		if (!success)
+		{
+			return false;
+		}
 
 		std::cout << "SUCCESS\n";
 
@@ -861,9 +963,24 @@ private:
 		textures[4] = Texture2D("../res/materialBall/roughness.png", 1,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		for (int i = 0; i < N_TEXTURES; ++i)
+		textures[5] = Texture2D("../res/metalGate/baseColor.jpg", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[6] = Texture2D("../res/metalGate/normal.jpg", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[7] = Texture2D("../res/metalGate/ambientOcclusion.jpg", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[8] = Texture2D("../res/metalGate/metallic.jpg", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		textures[9] = Texture2D("../res/metalGate/roughness.jpg", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+
+		for (int i = 0; i < N_MATERIAL_TEXTURES; ++i)
 		{
-			textures[i].bind(i + 3);
+			textures[i].bind(i + 4);
 		}
 	}
 
@@ -958,6 +1075,44 @@ private:
 
 		cube = gl.createPackedStaticGeometry(
 			irradiance_program.id, f_buffers, i_buffers, indices, success);
+
+		if (!success)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createQuad()
+	{
+		std::vector<BufferInfo<float>> f_buffers
+		{
+			{
+				"a_pos",
+				3,
+				std::vector<float>
+				{
+					-1.0f, -1.0f, 0.0f,
+					1.0f, -1.0f, 0.0f,
+					1.0f, 1.0f, 0.0f,
+					-1.0f, 1.0f, 0.0f
+				}
+			}
+		};
+
+		std::vector<BufferInfo<int>> i_buffers;
+
+		std::vector<unsigned> indices
+		{
+			0, 1, 2, 0, 2, 3
+		};
+
+		bool success;
+
+		quad = gl.createPackedStaticGeometry(
+			brdf_convolution_program.id, f_buffers,
+			i_buffers, indices, success);
 
 		if (!success)
 		{
@@ -1191,7 +1346,43 @@ private:
 		std::cout << "DONE\n";
 	}
 
-	/// Environment cube map
+	void createBRDFLUT()
+	{
+		std::cout << "Creating BRDF LUT ... ";
+
+		brdf_lut = Texture2D(
+			BRDF_LUT_WIDTH,
+			BRDF_LUT_HEIGHT,
+			GL_RG16F,
+			GL_CLAMP_TO_EDGE,
+			GL_CLAMP_TO_EDGE,
+			GL_LINEAR,
+			GL_LINEAR);
+
+		Renderbuffer lut_renderbuffer(GL_DEPTH_COMPONENT24, BRDF_LUT_WIDTH, BRDF_LUT_HEIGHT);
+
+		Framebuffer lut_framebuffer;
+		lut_framebuffer.attachTexture(GL_COLOR_ATTACHMENT0, brdf_lut, 0);
+		lut_framebuffer.attachRenderbuffer(GL_DEPTH_ATTACHMENT, lut_renderbuffer);
+		lut_framebuffer.bind();
+
+		glViewport(0, 0, BRDF_LUT_WIDTH, BRDF_LUT_HEIGHT);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		glUseProgram(brdf_convolution_program.id);
+
+		glBindVertexArray(quad.vao_id);
+		glDrawElements(GL_TRIANGLES, quad.n_indices, GL_UNSIGNED_INT, nullptr);
+
+		Framebuffer::bindDefault();
+
+		brdf_lut.bind(3);
+
+		std::cout << "DONE\n";
+	}
+
+	/// Environment
 	int current_environment = 0;
 
 	Empty16FTextureCube* env_cube_texture[N_ENVIRONMENTS];
@@ -1201,22 +1392,25 @@ private:
 	TextureHDREnvironment* env_source_texture[N_ENVIRONMENTS];
 	TextureHDREnvironment* irr_source_texture[N_ENVIRONMENTS];
 
+	Texture brdf_lut;
+
 	/// Programs
 	StandardPBRProgram standard_pbr;
 	IrradianceProgram irradiance_program;
 	SpecularMapProgram specular_program;
+	BRDFConvolutionProgram brdf_convolution_program;
 	SkyboxProgram skybox_program;
 
 	/// Material
-	Texture textures[N_TEXTURES];
+	Texture textures[N_MATERIAL_TEXTURES];
 
 	float shininess = 32.0f;
 	bool bump_map_active = true;
 	bool ao_map_active = true;
 
-	bool has_metallic_map = false;
+	bool has_metallic_map = true;
 	float metallic = 0.0f;
-	bool has_roughness_map = false;
+	bool has_roughness_map = true;
 	float roughness = 0.05f;
 
 	glm::vec3 f_0 = glm::vec3(0.04);
@@ -1231,7 +1425,9 @@ private:
 	/// Object properties
 	DeviceMesh geometry;
 	DeviceMesh cube;
+	DeviceMesh quad;
 	glm::mat4 model_matrix;
+	glm::vec3 rotation{ 0.0f, 0.0f, 0.0f };
 
 	/// Lights
 	DirectionalLight dir_light;
@@ -1331,7 +1527,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 		app->setProjection(glm::perspective(
 			glm::radians(60.0f), (float)width / height, 0.1f, 100.0f));
 
-		glViewport(0, 0, width, height);
+		app->setWindowSize(width, height);
 	}
 }
 

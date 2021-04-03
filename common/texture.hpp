@@ -69,6 +69,16 @@ public:
 		GLint min_filter,
 		GLint mag_filter);
 
+	// Creates an empty 2D texture
+	Texture2D(
+		int width,
+		int height,
+		GLenum internal_format,
+		GLint wrap_s,
+		GLint wrap_t,
+		GLint min_filter,
+		GLint mag_filter);
+
 	Texture2D()
 	{}
 };

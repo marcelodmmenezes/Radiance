@@ -15,10 +15,10 @@ uniform vec3 u_view_pos;
 
 out vec2 v_tex;
 out mat3 v_tbn;
-out vec3 v_l;
-out vec3 v_v;
-out vec3 v_h;
-out vec3 v_color;
+
+out vec3 v_view_pos;
+out vec3 v_light_pos;
+out vec3 v_frag_pos;
 
 void main()
 {
@@ -35,8 +35,8 @@ void main()
 	v_tbn = mat3(t, b, n);
 	mat3 tbn_inv = transpose(v_tbn);
 
-	v_v = normalize(tbn_inv * (u_view_pos - vec3(world_pos)));
-	v_l = normalize(tbn_inv * -u_light_dir);
-	v_h = normalize(v_v + v_l);
+	v_view_pos = tbn_inv * u_view_pos;
+	v_light_pos = tbn_inv * -u_light_dir;
+	v_frag_pos = tbn_inv * vec3(world_pos);
 }
 
