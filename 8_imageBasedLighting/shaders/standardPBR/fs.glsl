@@ -3,9 +3,10 @@
 #define PI 3.1415926535
 
 in vec2 v_tex;
+in vec3 v_world_pos;
 in mat3 v_tbn;
-in vec3 v_view_pos;
-in vec3 v_frag_pos;
+
+uniform vec3 u_view_pos;
 
 uniform samplerCube u_irradiance_sampler;
 uniform samplerCube u_specular_sampler;
@@ -68,17 +69,18 @@ void main()
 		n = vec3(0.0, 0.0, 1.0);
 	}
 
-	vec3 v = normalize(v_view_pos - v_frag_pos);
+	n = v_tbn * n;
+	vec3 v = normalize(u_view_pos - v_world_pos);
 	float n_dot_v = max(dot(n, v), 0.0);
 
 	vec3 f_0 = mix(vec3(0.04), albedo, metallic);
 	vec3 f = fresnelSchlick(n_dot_v, f_0, roughness);
 	vec3 k_d = (vec3(1.0) - f) * (1.0 - metallic);
 
-	vec3 irradiance = texture(u_irradiance_sampler, v_tbn * n).rgb;
+	vec3 irradiance = texture(u_irradiance_sampler, n).rgb;
 	vec3 env_diffuse = irradiance * albedo;
 
-	vec3 r = v_tbn * reflect(-v, n);
+	vec3 r = reflect(-v, n);
 	vec3 prefiltered_color = textureLod(u_specular_sampler, r, roughness * 4.0).rgb;
 
 	f = fresnelSchlick(n_dot_v, f_0, roughness);

@@ -14,7 +14,7 @@
 #define WINDOW_HEIGHT 768
 
 #define N_ENVIRONMENTS 3
-#define N_MATERIAL_TEXTURES 10
+#define N_MATERIAL_TEXTURES 5
 
 #define FBO_ENV_WIDTH 512
 #define FBO_ENV_HEIGHT 512
@@ -117,8 +117,7 @@ private:
 		GLuint id;
 
 		GLint u_model_matrix_loc;
-		GLint u_view_matrix_loc;
-		GLint u_projection_matrix_loc;
+		GLint u_pv_matrix_loc;
 		GLint u_nor_transform_loc;
 
 		GLint u_view_pos_loc;
@@ -239,15 +238,13 @@ private:
 		irr_cube_texture[current_environment]->bind(1);
 		spec_cube_texture[current_environment]->bind(2);
 
-		standardPBR(camera_position, view_matrix);
-
-		drawGeometry();
+		drawGeometry(camera_position, view_matrix);
 		drawSkybox(view_matrix);
 
 		return true;
 	}
 
-	void standardPBR(
+	void drawGeometry(
 		glm::vec3 const& camera_position,
 		glm::mat4 const& view_matrix)
 	{
@@ -255,10 +252,8 @@ private:
 
 		glUniformMatrix4fv(standard_pbr.u_model_matrix_loc,
 			1, GL_FALSE, glm::value_ptr(model_matrix));
-		glUniformMatrix4fv(standard_pbr.u_view_matrix_loc,
-			1, GL_FALSE, glm::value_ptr(view_matrix));
-		glUniformMatrix4fv(standard_pbr.u_projection_matrix_loc,
-			1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix4fv(standard_pbr.u_pv_matrix_loc,
+			1, GL_FALSE, glm::value_ptr(projection * view_matrix));
 		glUniformMatrix3fv(standard_pbr.u_nor_transform_loc,
 			1, GL_FALSE, glm::value_ptr(glm::mat3(
 				glm::transpose(glm::inverse(model_matrix)))));
@@ -270,10 +265,10 @@ private:
 		glUniform1i(standard_pbr.u_specular_sampler_loc, 2);
 		glUniform1i(standard_pbr.u_brdf_lut_sampler_loc, 3);
 
-		glUniform1i(standard_pbr.u_has_normal_map_loc, true);
-		glUniform1i(standard_pbr.u_has_ao_map_loc, true);
-		glUniform1i(standard_pbr.u_has_metallic_map_loc, true);
-		glUniform1i(standard_pbr.u_has_roughness_map_loc, true);
+		glUniform1i(standard_pbr.u_has_normal_map_loc, has_normal_map);
+		glUniform1i(standard_pbr.u_has_ao_map_loc, has_ao_map);
+		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
+		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
 
 		glUniform1i(standard_pbr.u_albedo_sampler_loc, 4);
 		glUniform1i(standard_pbr.u_normal_sampler_loc, 5);
@@ -281,15 +276,12 @@ private:
 		glUniform1i(standard_pbr.u_metallic_sampler_loc, 7);
 		glUniform1i(standard_pbr.u_roughness_sampler_loc, 8);
 
-		glUniform1f(standard_pbr.u_metallic_loc, 1.0f);
-		glUniform1f(standard_pbr.u_roughness_loc, 1.0f);
+		glUniform1f(standard_pbr.u_metallic_loc, metallic);
+		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
 		glUniform1f(standard_pbr.u_exposure_loc, exposure);
-	}
 
-	void drawGeometry()
-	{
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
 	}
@@ -370,14 +362,42 @@ private:
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
 
-		Text("Normal Map");
-		Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
-		Text("AO Map");
-		Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
-		Text("Metallic Map");
-		Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
-		Text("Roughness Map");
-		Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
+		Checkbox("Normal Map", &has_normal_map);
+
+		if (has_normal_map)
+		{
+			Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
+		}
+
+		Checkbox("AO Map", &has_ao_map);
+
+		if (has_ao_map)
+		{
+			Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
+		}
+
+		Checkbox("Metallic Map", &has_metallic_map);
+
+		if (has_metallic_map)
+		{
+			Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
+		}
+		else
+		{
+			SliderFloat("Metallic", &metallic, 0.0f, 1.0f);
+		}
+
+		Checkbox("Roughness Map", &has_roughness_map);
+
+		if (has_roughness_map)
+		{
+			Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
+		}
+		else
+		{
+			SliderFloat("Roughness", &roughness, 0.05f, 1.0f);
+		}
+
 		Text("BRDF LUT");
 		Image((void*)(intptr_t)brdf_lut.getId(), ImVec2(128, 128));
 
@@ -515,7 +535,7 @@ private:
 			return false;
 		}
 
-		std::cout << "Creating StandardPBR program ... ";
+		std::cout << "Creating standard pbr program ... ";
 
 		readShader(vs_file, fs_file, shaders);
 
@@ -530,10 +550,8 @@ private:
 
 		standard_pbr.u_model_matrix_loc =
 			glGetUniformLocation(standard_pbr.id, "u_model_matrix");
-		standard_pbr.u_view_matrix_loc =
-			glGetUniformLocation(standard_pbr.id, "u_view_matrix");
-		standard_pbr.u_projection_matrix_loc =
-			glGetUniformLocation(standard_pbr.id, "u_projection_matrix");
+		standard_pbr.u_pv_matrix_loc =
+			glGetUniformLocation(standard_pbr.id, "u_pv_matrix");
 		standard_pbr.u_nor_transform_loc =
 			glGetUniformLocation(standard_pbr.id, "u_nor_transform");
 
@@ -578,8 +596,7 @@ private:
 			glGetUniformLocation(standard_pbr.id, "u_exposure");
 
 		assert(standard_pbr.u_model_matrix_loc != -1);
-		assert(standard_pbr.u_view_pos_loc != -1);
-		assert(standard_pbr.u_projection_matrix_loc != -1);
+		assert(standard_pbr.u_pv_matrix_loc != -1);
 		assert(standard_pbr.u_nor_transform_loc != -1);
 
 		assert(standard_pbr.u_view_pos_loc != -1);
@@ -834,6 +851,8 @@ private:
 
 	void createTextures()
 	{
+		std::cout << "Loading material textures ... ";
+
 		textures[0] = Texture2D("../res/materialBall/color.png", 3,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
@@ -849,29 +868,18 @@ private:
 		textures[4] = Texture2D("../res/materialBall/roughness.png", 1,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-		textures[5] = Texture2D("../res/metalGate/baseColor.jpg", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-
-		textures[6] = Texture2D("../res/metalGate/normal.jpg", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-
-		textures[7] = Texture2D("../res/metalGate/ambientOcclusion.jpg", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-
-		textures[8] = Texture2D("../res/metalGate/metallic.jpg", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-
-		textures[9] = Texture2D("../res/metalGate/roughness.jpg", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
-
 		for (int i = 0; i < N_MATERIAL_TEXTURES; ++i)
 		{
 			textures[i].bind(i + 4);
 		}
+
+		std::cout << "DONE\n";
 	}
 
 	bool createGeometry()
 	{
+		std::cout << "Creating Geometry ... ";
+
 		std::vector<BufferInfo<float>> f_buffers;
 		std::vector<BufferInfo<int>> i_buffers;
 		std::vector<unsigned> indices;
@@ -1004,6 +1012,8 @@ private:
 		{
 			return false;
 		}
+
+		std::cout << "DONE\n";
 
 		return true;
 	}
@@ -1290,6 +1300,14 @@ private:
 	/// Material
 	Texture textures[N_MATERIAL_TEXTURES];
 
+	bool has_normal_map = true;
+	bool has_ao_map = true;
+	bool has_metallic_map = true;
+	bool has_roughness_map = true;
+
+	float metallic = 0.0f;
+	float roughness = 0.05f;
+
 	/// Skybox
 	int skybox_sampler_unit = 0;
 	float skybox_mipmap_level = 0;
@@ -1402,7 +1420,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("CubeMaps", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Image Based Lighting", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{
