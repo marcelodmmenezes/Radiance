@@ -548,11 +548,11 @@ private:
 
 	void createTextures()
 	{
-		texture[0] = Texture2D("../res/metalGate/baseColor.jpg", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+		texture[0] = Texture2D("../res/metalGate/albedo.jpg", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		texture[1] = Texture2D("../res/metalGate/normal.jpg", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		texture[0].bind(0);
 		texture[1].bind(1);
@@ -750,7 +750,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("MipmapVis", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Bump Mapping", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{

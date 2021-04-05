@@ -53,7 +53,8 @@ public:
 		GLint wrap_s,
 		GLint wrap_t,
 		GLint min_filter,
-		GLint mag_filter);
+		GLint mag_filter,
+		bool flip_on_load);
 
 	// Creates texture from @data
 	// @data should contain all the mipmap levels

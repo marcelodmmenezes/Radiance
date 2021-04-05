@@ -13,13 +13,13 @@
 #define WINDOW_WIDTH 1366
 #define WINDOW_HEIGHT 768
 
-#define N_ENVIRONMENTS 3
-#define N_MATERIAL_TEXTURES 5
+#define N_ENVIRONMENTS 1
+#define N_MATERIAL_TEXTURES 6
 
-#define FBO_ENV_WIDTH 512
-#define FBO_ENV_HEIGHT 512
-#define FBO_SPEC_WIDTH 128
-#define FBO_SPEC_HEIGHT 128
+#define FBO_ENV_WIDTH 1024
+#define FBO_ENV_HEIGHT 1024
+#define FBO_SPEC_WIDTH 512
+#define FBO_SPEC_HEIGHT 512
 
 #define BRDF_LUT_WIDTH 512
 #define BRDF_LUT_HEIGHT 512
@@ -126,13 +126,19 @@ private:
 		GLint u_specular_sampler_loc;
 		GLint u_brdf_lut_sampler_loc;
 
+		GLint u_parallax_algorithm_loc;
+		GLint u_depth_scale_loc;
+		GLint u_n_parallax_layers_loc;
+
 		GLint u_has_normal_map_loc;
+		GLint u_has_depth_map_loc;
 		GLint u_has_ao_map_loc;
 		GLint u_has_metallic_map_loc;
 		GLint u_has_roughness_map_loc;
 
 		GLint u_albedo_sampler_loc;
 		GLint u_normal_sampler_loc;
+		GLint u_depth_sampler_loc;
 		GLint u_ao_sampler_loc;
 		GLint u_metallic_sampler_loc;
 		GLint u_roughness_sampler_loc;
@@ -197,7 +203,6 @@ private:
 			!createSpecularMapProgram() ||
 			!createBRDFConvolutionProgram() ||
 			!createSkyboxProgram() ||
-			!createGeometry() ||
 			!createCube() ||
 			!createQuad())
 		{
@@ -213,7 +218,6 @@ private:
 		glClearColor(0.10, 0.25, 0.15, 1.0);
 
 		gl.enable(GL_DEPTH_TEST);
-		gl.enable(GL_CULL_FACE);
 		gl.enable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 		if (OpenGLContext::checkErrors(__FILE__, __LINE__))
@@ -265,16 +269,22 @@ private:
 		glUniform1i(standard_pbr.u_specular_sampler_loc, 2);
 		glUniform1i(standard_pbr.u_brdf_lut_sampler_loc, 3);
 
+		glUniform1i(standard_pbr.u_parallax_algorithm_loc, parallax_algorithm);
+		glUniform1f(standard_pbr.u_depth_scale_loc, depth_scale);
+		glUniform1i(standard_pbr.u_n_parallax_layers_loc, n_parallax_layers);
+
 		glUniform1i(standard_pbr.u_has_normal_map_loc, has_normal_map);
+		glUniform1i(standard_pbr.u_has_depth_map_loc, has_depth_map);
 		glUniform1i(standard_pbr.u_has_ao_map_loc, has_ao_map);
 		glUniform1i(standard_pbr.u_has_metallic_map_loc, has_metallic_map);
 		glUniform1i(standard_pbr.u_has_roughness_map_loc, has_roughness_map);
 
 		glUniform1i(standard_pbr.u_albedo_sampler_loc, 4);
 		glUniform1i(standard_pbr.u_normal_sampler_loc, 5);
-		glUniform1i(standard_pbr.u_ao_sampler_loc, 6);
-		glUniform1i(standard_pbr.u_metallic_sampler_loc, 7);
-		glUniform1i(standard_pbr.u_roughness_sampler_loc, 8);
+		glUniform1i(standard_pbr.u_depth_sampler_loc, 6);
+		glUniform1i(standard_pbr.u_ao_sampler_loc, 7);
+		glUniform1i(standard_pbr.u_metallic_sampler_loc, 8);
+		glUniform1i(standard_pbr.u_roughness_sampler_loc, 9);
 
 		glUniform1f(standard_pbr.u_metallic_loc, metallic);
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
@@ -282,8 +292,8 @@ private:
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
 		glUniform1f(standard_pbr.u_exposure_loc, exposure);
 
-		glBindVertexArray(geometry.vao_id);
-		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
+		glBindVertexArray(quad.vao_id);
+		glDrawElements(GL_TRIANGLES, quad.n_indices, GL_UNSIGNED_INT, nullptr);
 	}
 
 	void drawSkybox(glm::mat4 const& view_matrix)
@@ -337,9 +347,8 @@ private:
 			textures[i].destroy();
 		}
 
-		gl.destroyGeometry(geometry);
-		gl.destroyGeometry(cube);
 		gl.destroyGeometry(quad);
+		gl.destroyGeometry(cube);
 	}
 
 	void buildGUI()
@@ -357,7 +366,8 @@ private:
 		model_matrix =
 			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f)) *
 			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f)) *
-			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::rotate(glm::mat4(1.0f), glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f)) *
+			glm::scale(glm::mat4(1.0f), glm::vec3(10.0f, 10.0f, 10.0f));
 
 		Dummy(ImVec2(0.0f, 2.0f));
 		Separator();
@@ -369,18 +379,40 @@ private:
 			Image((void*)(intptr_t)textures[1].getId(), ImVec2(128, 128));
 		}
 
+		Checkbox("Depth Map", &has_depth_map);
+
+		if (has_depth_map)
+		{
+			BeginGroup();
+			RadioButton("Default Parallax", &parallax_algorithm, 0);
+			RadioButton("Parallax With Offset Limiting", &parallax_algorithm, 1);
+			RadioButton("Steep Parallax Mapping", &parallax_algorithm, 2);
+			RadioButton("Parallax Occlusion Mapping", &parallax_algorithm, 3);
+			EndGroup();
+
+			SliderFloat("Depth Scale", &depth_scale, 0.0f, 0.2f);
+
+			if (parallax_algorithm == 2 ||
+				parallax_algorithm == 3)
+			{
+				SliderInt("Number of layers", &n_parallax_layers, 1, 300);
+			}
+
+			Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
+		}
+
 		Checkbox("AO Map", &has_ao_map);
 
 		if (has_ao_map)
 		{
-			Image((void*)(intptr_t)textures[2].getId(), ImVec2(128, 128));
+			Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
 		}
 
 		Checkbox("Metallic Map", &has_metallic_map);
 
 		if (has_metallic_map)
 		{
-			Image((void*)(intptr_t)textures[3].getId(), ImVec2(128, 128));
+			Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
 		}
 		else
 		{
@@ -391,7 +423,7 @@ private:
 
 		if (has_roughness_map)
 		{
-			Image((void*)(intptr_t)textures[4].getId(), ImVec2(128, 128));
+			Image((void*)(intptr_t)textures[5].getId(), ImVec2(128, 128));
 		}
 		else
 		{
@@ -404,23 +436,7 @@ private:
 		End();
 
 		/// ENVIRONMENT
-		Begin("Environment");
-
-		Text("Map");
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		BeginGroup();
-		RadioButton("Gravel Plaza", &current_environment, 0);
-		RadioButton("Paper Mill", &current_environment, 1);
-		RadioButton("Winter Forest", &current_environment, 2);
-		EndGroup();
-
-		Dummy(ImVec2(0.0f, 2.0f));
-		Separator();
-
-		Text("Skybox");
+		Begin("Skybox");
 
 		BeginGroup();
 		RadioButton("Environment map", &skybox_sampler_unit, 0);
@@ -565,8 +581,17 @@ private:
 		standard_pbr.u_brdf_lut_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_brdf_lut_sampler");
 
+		standard_pbr.u_parallax_algorithm_loc =
+			glGetUniformLocation(standard_pbr.id, "u_parallax_algorithm");
+		standard_pbr.u_depth_scale_loc =
+			glGetUniformLocation(standard_pbr.id, "u_depth_scale");
+		standard_pbr.u_n_parallax_layers_loc =
+			glGetUniformLocation(standard_pbr.id, "u_n_parallax_layers");
+
 		standard_pbr.u_has_normal_map_loc =
 			glGetUniformLocation(standard_pbr.id, "u_has_normal_map");
+		standard_pbr.u_has_depth_map_loc =
+			glGetUniformLocation(standard_pbr.id, "u_has_depth_map");
 		standard_pbr.u_has_ao_map_loc =
 			glGetUniformLocation(standard_pbr.id, "u_has_ao_map");
 		standard_pbr.u_has_metallic_map_loc =
@@ -578,6 +603,8 @@ private:
 			glGetUniformLocation(standard_pbr.id, "u_albedo_sampler");
 		standard_pbr.u_normal_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_normal_sampler");
+		standard_pbr.u_depth_sampler_loc =
+			glGetUniformLocation(standard_pbr.id, "u_depth_sampler");
 		standard_pbr.u_ao_sampler_loc =
 			glGetUniformLocation(standard_pbr.id, "u_ao_sampler");
 		standard_pbr.u_metallic_sampler_loc =
@@ -605,13 +632,19 @@ private:
 		assert(standard_pbr.u_specular_sampler_loc != -1);
 		assert(standard_pbr.u_brdf_lut_sampler_loc != -1);
 
+		assert(standard_pbr.u_parallax_algorithm_loc != -1);
+		assert(standard_pbr.u_depth_scale_loc != -1);
+		assert(standard_pbr.u_n_parallax_layers_loc != -1);
+
 		assert(standard_pbr.u_has_normal_map_loc != -1);
+		assert(standard_pbr.u_has_depth_map_loc != -1);
 		assert(standard_pbr.u_has_ao_map_loc != -1);
 		assert(standard_pbr.u_has_metallic_map_loc != -1);
 		assert(standard_pbr.u_has_roughness_map_loc != -1);
 
 		assert(standard_pbr.u_albedo_sampler_loc != -1);
 		assert(standard_pbr.u_normal_sampler_loc != -1);
+		assert(standard_pbr.u_depth_sampler_loc != -1);
 		assert(standard_pbr.u_ao_sampler_loc != -1);
 		assert(standard_pbr.u_metallic_sampler_loc != -1);
 		assert(standard_pbr.u_roughness_sampler_loc != -1);
@@ -853,20 +886,23 @@ private:
 	{
 		std::cout << "Loading material textures ... ";
 
-		textures[0] = Texture2D("../res/materialBall/color.png", 3,
+		textures[0] = Texture2D("../res/catacombs/albedo.jpg", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, false);
+
+		textures[1] = Texture2D("../res/catacombs/normal.jpg", 3,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, false);
+
+		textures[2] = Texture2D("../res/catacombs/height.png", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, false);
+
+		textures[3] = Texture2D("../res/catacombs/ao.jpg", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, false);
+
+		textures[4] = Texture2D("../res/metalGate/metallic.jpg", 1,
 			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
-		textures[1] = Texture2D("../res/materialBall/normal.png", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
-
-		textures[2] = Texture2D("../res/materialBall/ao.png", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
-
-		textures[3] = Texture2D("../res/materialBall/metallic.png", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
-
-		textures[4] = Texture2D("../res/materialBall/roughness.png", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
+		textures[5] = Texture2D("../res/catacombs/roughness.jpg", 1,
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, false);
 
 		for (int i = 0; i < N_MATERIAL_TEXTURES; ++i)
 		{
@@ -874,50 +910,6 @@ private:
 		}
 
 		std::cout << "DONE\n";
-	}
-
-	bool createGeometry()
-	{
-		std::cout << "Creating Geometry ... ";
-
-		std::vector<BufferInfo<float>> f_buffers;
-		std::vector<BufferInfo<int>> i_buffers;
-		std::vector<unsigned> indices;
-
-		bool success = parseOBJ("../res/materialBall/mesh.obj", f_buffers, indices);
-
-		if (!success)
-		{
-			return false;
-		}
-
-		f_buffers[0].attribute_name = "a_pos";
-		f_buffers[1].attribute_name = "a_nor";
-		f_buffers[2].attribute_name = "a_tex";
-
-		f_buffers.emplace_back(
-			BufferInfo<float>
-			{
-				"a_tan",
-				3,
-				std::vector<float>(f_buffers[0].values.size(), 0.0f)
-			});
-
-		generateTangentVectors(
-			indices,
-			f_buffers[0].values,
-			f_buffers[2].values,
-			f_buffers[3].values);
-
-		geometry = gl.createPackedStaticGeometry(
-			standard_pbr.id, f_buffers, i_buffers, indices, success);
-
-		if (!success)
-		{
-			return false;
-		}
-
-		return true;
 	}
 
 	bool createCube()
@@ -992,6 +984,39 @@ private:
 					1.0f, 1.0f, 0.0f,
 					-1.0f, 1.0f, 0.0f
 				}
+			},
+			{
+				"a_nor",
+				3,
+				std::vector<float>
+				{
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f,
+					0.0f, 0.0f, 1.0f
+				}
+			},
+			{
+				"a_tex",
+				2,
+				std::vector<float>
+				{
+					0.0f, 0.0f,
+					1.0f, 0.0f,
+					1.0f, 1.0f,
+					0.0f, 1.0f
+				}
+			},
+			{
+				"a_tan",
+				3,
+				std::vector<float>
+				{
+					1.0f, 0.0f, 0.0f,
+					1.0f, 0.0f, 0.0f,
+					1.0f, 0.0f, 0.0f,
+					1.0f, 0.0f, 0.0f
+				}
 			}
 		};
 
@@ -1005,15 +1030,13 @@ private:
 		bool success;
 
 		quad = gl.createPackedStaticGeometry(
-			brdf_convolution_program.id, f_buffers,
+			standard_pbr.id, f_buffers,
 			i_buffers, indices, success);
 
 		if (!success)
 		{
 			return false;
 		}
-
-		std::cout << "DONE\n";
 
 		return true;
 	}
@@ -1025,16 +1048,8 @@ private:
 		std::vector<std::pair<std::string, std::string>> files
 		{
 			{
-				"../res/environmentMaps/gravelPlaza.hdr",
-				"../res/environmentMaps/gravelPlazaIrradiance.hdr",
-			},
-			{
 				"../res/environmentMaps/paperMill.hdr",
 				"../res/environmentMaps/paperMillIrradiance.hdr",
-			},
-			{
-				"../res/environmentMaps/winterForest.hdr",
-				"../res/environmentMaps/winterForestIrradiance.hdr",
 			}
 		};
 
@@ -1300,9 +1315,14 @@ private:
 	/// Material
 	Texture textures[N_MATERIAL_TEXTURES];
 
+	int parallax_algorithm = 3;
+	float depth_scale = 0.1f;
+	int n_parallax_layers = 200;
+
 	bool has_normal_map = true;
+	bool has_depth_map = true;
 	bool has_ao_map = true;
-	bool has_metallic_map = true;
+	bool has_metallic_map = false;
 	bool has_roughness_map = true;
 
 	float metallic = 0.0f;
@@ -1313,11 +1333,10 @@ private:
 	float skybox_mipmap_level = 0;
 
 	/// Object properties
-	DeviceMesh geometry;
-	DeviceMesh cube;
 	DeviceMesh quad;
+	DeviceMesh cube;
 	glm::mat4 model_matrix;
-	glm::vec3 rotation{ 0.0f, 0.0f, 0.0f };
+	glm::vec3 rotation{ 90.0f, 0.0f, 0.0f };
 
 	/// Camera
 	FlyThroughCamera camera;
@@ -1412,7 +1431,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 	if (width > 0 && height > 0)
 	{
 		app->setProjection(glm::perspective(
-			glm::radians(60.0f), (float)width / height, 0.1f, 100.0f));
+			glm::radians(60.0f), (float)width / height, 0.1f, 1000.0f));
 
 		app->setWindowSize(width, height);
 	}
@@ -1420,7 +1439,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("Image Based Lighting", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Parallax Mapping", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{

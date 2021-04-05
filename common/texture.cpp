@@ -75,11 +75,12 @@ Texture2D::Texture2D(
 	GLint wrap_s,
 	GLint wrap_t,
 	GLint min_filter,
-	GLint mag_filter)
+	GLint mag_filter,
+	bool flip_on_load)
 	:
 	Texture(file_path)
 {
-	stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(flip_on_load);
 
 	unsigned char* image = stbi_load(path.c_str(),
 		&width, &height, &channels, n_desired_channels);

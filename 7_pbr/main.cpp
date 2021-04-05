@@ -722,16 +722,16 @@ private:
 	void createTextures()
 	{
 		textures[0] = Texture2D("../res/materialBall/color.png", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		textures[1] = Texture2D("../res/materialBall/normal.png", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		textures[2] = Texture2D("../res/materialBall/metallic.png", 1,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		textures[3] = Texture2D("../res/materialBall/roughness.png", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		for (int i = 0; i < N_TEXTURES; ++i)
 		{
@@ -907,7 +907,7 @@ void windowResize(GLFWwindow* window, int width, int height)
 
 int main()
 {
-	Application app("CubeMaps", WINDOW_WIDTH, WINDOW_HEIGHT);
+	Application app("Cook-Torrance", WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	if (app.init())
 	{

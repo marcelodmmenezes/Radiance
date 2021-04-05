@@ -8,7 +8,8 @@ subdirs = thirdParty \
 	5_bumpMapping \
 	6_cubeMaps \
 	7_pbr \
-	8_imageBasedLighting
+	8_imageBasedLighting \
+	9_parallaxMapping
 
 .PHONY: $(subdirs)
 

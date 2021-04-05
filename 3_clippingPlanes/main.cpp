@@ -468,7 +468,7 @@ private:
 	void createTexture()
 	{
 		texture = Texture2D("../res/materialBall/color.png", 3,
-			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
+			GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, true);
 
 		texture.bind(0);
 	}
