@@ -142,7 +142,6 @@ private:
 		GLint u_roughness_loc;
 
 		GLint u_gamma_loc;
-		//GLint u_exposure_loc;
 	};
 
 	struct IrradianceProgram
@@ -183,7 +182,6 @@ private:
 		GLint u_mipmap_level_loc;
 
 		GLint u_gamma_loc;
-		//GLint u_exposure_loc;
 	};
 
 	struct GaussianBlurProgram
@@ -250,8 +248,6 @@ private:
 
 	bool customLoop(double delta_time) override
 	{
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		buildGUI();
 
 		updateCamera(delta_time);
@@ -271,6 +267,7 @@ private:
 		blur();
 
 		Framebuffer::bindDefault();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		drawBlended();
 
@@ -313,7 +310,6 @@ private:
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
-		//glUniform1f(standard_pbr.u_exposure_loc, exposure);
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -335,7 +331,6 @@ private:
 		glUniform1f(skybox_program.u_mipmap_level_loc, skybox_mipmap_level);
 
 		glUniform1f(skybox_program.u_gamma_loc, gamma_correction);
-		//glUniform1f(skybox_program.u_exposure_loc, exposure);
 
 		glBindVertexArray(cube.vao_id);
 		glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -345,6 +340,8 @@ private:
 
 	void blur()
 	{
+		glViewport(0, 0, window_width / 2, window_height / 2);
+
 		glUseProgram(gaussian_blur_program.id);
 		glUniform1i(gaussian_blur_program.u_sampler_loc, 0);
 		glUniform1fv(gaussian_blur_program.u_weights_loc, 5, blur_weights);
@@ -373,6 +370,8 @@ private:
 
 			bloom_render_targets[3].bind(0);
 		}
+
+		glViewport(0, 0, window_width, window_height);
 	}
 
 	void drawBlended()
@@ -682,8 +681,6 @@ private:
 
 		standard_pbr.u_gamma_loc =
 			glGetUniformLocation(standard_pbr.id, "u_gamma");
-		//standard_pbr.u_exposure_loc =
-			//glGetUniformLocation(standard_pbr.id, "u_exposure");
 
 		assert(standard_pbr.u_model_matrix_loc != -1);
 		assert(standard_pbr.u_pv_matrix_loc != -1);
@@ -710,7 +707,6 @@ private:
 		assert(standard_pbr.u_roughness_loc != -1);
 
 		assert(standard_pbr.u_gamma_loc != -1);
-		//assert(standard_pbr.u_exposure_loc != -1);
 
 		std::cout << "SUCCESS\n";
 
@@ -900,15 +896,12 @@ private:
 
 		skybox_program.u_gamma_loc =
 			glGetUniformLocation(skybox_program.id, "u_gamma");
-		//skybox_program.u_exposure_loc =
-			//glGetUniformLocation(skybox_program.id, "u_exposure");
 
 		assert(skybox_program.u_view_matrix_loc != -1);
 		assert(skybox_program.u_projection_matrix_loc != -1);
 		assert(skybox_program.u_cube_sampler_loc != -1);
 		assert(skybox_program.u_mipmap_level_loc != -1);
 		assert(skybox_program.u_gamma_loc != -1);
-		//assert(skybox_program.u_exposure_loc != -1);
 
 		std::cout << "SUCCESS\n";
 
@@ -1091,7 +1084,7 @@ private:
 		// Gaussian blur rt
 		for (int i = 0; i < 2; ++i)
 		{
-			bloom_render_targets[i + 2] = Texture2D(window_width, window_height, GL_RGBA16F,
+			bloom_render_targets[i + 2] = Texture2D(window_width / 2, window_height / 2, GL_RGBA16F,
 				GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
 
 			bloom_framebuffers[i + 1].attachTexture(GL_COLOR_ATTACHMENT0, bloom_render_targets[i + 2], 0);

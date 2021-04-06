@@ -27,7 +27,6 @@ uniform float u_metallic;
 uniform float u_roughness;
 
 uniform float u_gamma;
-//uniform float u_exposure;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_bright;
@@ -89,9 +88,6 @@ void main()
 	vec3 env_specular = prefiltered_color * (f * env_brdf.x + env_brdf.y);
 
 	vec3 radiance = (k_d * env_diffuse + env_specular) * ao;
-
-	//out_color.rgb = vec3(1.0) - exp(-radiance * u_exposure);
-	//out_color = vec4(pow(out_color.rgb, vec3(1.0 / u_gamma)), 1.0);
 
 	out_color = vec4(radiance, 1.0);
 
