@@ -16,6 +16,8 @@ public:
 	virtual ~Framebuffer()
 	{}
 
+	GLuint getId() const;
+
 	void attachTexture(
 		GLenum attachment,
 		Texture const& texture,

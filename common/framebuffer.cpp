@@ -18,6 +18,11 @@ Framebuffer::Framebuffer()
 	}
 }
 
+GLuint Framebuffer::getId() const
+{
+	return id;
+}
+
 void Framebuffer::attachTexture(
 	GLenum attachment,
 	Texture const& texture,
