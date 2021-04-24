@@ -4,15 +4,15 @@ in vec2 v_tex;
 
 uniform sampler2D u_sampler;
 
+uniform vec2 u_texture_size;
 uniform float u_weights[5];
-
 uniform bool u_horizontal;
 
 out vec4 out_color;
 
 void main()
 {
-	vec2 tex_offset = 1.0 / textureSize(u_sampler, 0);
+	vec2 tex_offset = 1.0 / u_texture_size;
 	vec3 result = texture(u_sampler, v_tex).rgb * u_weights[0];
 
 	if (u_horizontal)

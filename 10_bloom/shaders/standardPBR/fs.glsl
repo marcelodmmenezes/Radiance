@@ -27,6 +27,7 @@ uniform float u_metallic;
 uniform float u_roughness;
 
 uniform float u_gamma;
+uniform float u_exposure;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_bright;
@@ -89,7 +90,8 @@ void main()
 
 	vec3 radiance = (k_d * env_diffuse + env_specular) * ao;
 
-	out_color = vec4(radiance, 1.0);
+	// Tonemapping render target 0
+	out_color = vec4(vec3(1.0) - exp(-radiance * u_exposure), 1.0);
 
 	// Bloom
 	float brightness = dot(radiance.rgb, vec3(0.2126, 0.7152, 0.0722));

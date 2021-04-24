@@ -142,6 +142,7 @@ private:
 		GLint u_roughness_loc;
 
 		GLint u_gamma_loc;
+		GLint u_exposure_loc;
 	};
 
 	struct IrradianceProgram
@@ -182,6 +183,7 @@ private:
 		GLint u_mipmap_level_loc;
 
 		GLint u_gamma_loc;
+		GLint u_exposure_loc;
 	};
 
 	struct GaussianBlurProgram
@@ -189,6 +191,8 @@ private:
 		GLint id;
 
 		GLint u_sampler_loc;
+
+		GLint u_texture_size_loc;
 		GLint u_weights_loc;
 		GLint u_horizontal_loc;
 	};
@@ -310,6 +314,7 @@ private:
 		glUniform1f(standard_pbr.u_roughness_loc, roughness);
 
 		glUniform1f(standard_pbr.u_gamma_loc, gamma_correction);
+		glUniform1f(standard_pbr.u_exposure_loc, exposure);
 
 		glBindVertexArray(geometry.vao_id);
 		glDrawElements(GL_TRIANGLES, geometry.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -331,6 +336,7 @@ private:
 		glUniform1f(skybox_program.u_mipmap_level_loc, skybox_mipmap_level);
 
 		glUniform1f(skybox_program.u_gamma_loc, gamma_correction);
+		glUniform1f(skybox_program.u_exposure_loc, exposure);
 
 		glBindVertexArray(cube.vao_id);
 		glDrawElements(GL_TRIANGLES, cube.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -340,10 +346,11 @@ private:
 
 	void blur()
 	{
-		glViewport(0, 0, window_width / 2, window_height / 2);
+		glViewport(0, 0, window_width / 8, window_height / 8);
 
 		glUseProgram(gaussian_blur_program.id);
 		glUniform1i(gaussian_blur_program.u_sampler_loc, 0);
+		glUniform2f(gaussian_blur_program.u_texture_size_loc, window_width / 8, window_height / 8);
 		glUniform1fv(gaussian_blur_program.u_weights_loc, 5, blur_weights);
 
 		bloom_render_targets[1].bind(0);
@@ -353,7 +360,7 @@ private:
 			// Horizontal
 			bloom_framebuffers[1].bind();
 
-			glUniform1i(gaussian_blur_program.u_horizontal_loc, 0);
+			glUniform1i(gaussian_blur_program.u_horizontal_loc, 1);
 
 			glBindVertexArray(quad.vao_id);
 			glDrawElements(GL_TRIANGLES, quad.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -363,7 +370,7 @@ private:
 			// Vertical
 			bloom_framebuffers[2].bind();
 
-			glUniform1i(gaussian_blur_program.u_horizontal_loc, 1);
+			glUniform1i(gaussian_blur_program.u_horizontal_loc, 0);
 
 			glBindVertexArray(quad.vao_id);
 			glDrawElements(GL_TRIANGLES, quad.n_indices, GL_UNSIGNED_INT, nullptr);
@@ -468,7 +475,7 @@ private:
 			ImVec2(354, 200), ImVec2(0, 1), ImVec2(1, 0));
 
 		Dummy(ImVec2(0.0f, 2.0f));
-		Text("Vertical blur");
+		Text("Gaussian blur");
 		Image((void*)(intptr_t)bloom_render_targets[3].getId(),
 			ImVec2(354, 200), ImVec2(0, 1), ImVec2(1, 0));
 
@@ -681,6 +688,8 @@ private:
 
 		standard_pbr.u_gamma_loc =
 			glGetUniformLocation(standard_pbr.id, "u_gamma");
+		standard_pbr.u_exposure_loc =
+			glGetUniformLocation(standard_pbr.id, "u_exposure");
 
 		assert(standard_pbr.u_model_matrix_loc != -1);
 		assert(standard_pbr.u_pv_matrix_loc != -1);
@@ -707,6 +716,7 @@ private:
 		assert(standard_pbr.u_roughness_loc != -1);
 
 		assert(standard_pbr.u_gamma_loc != -1);
+		assert(standard_pbr.u_exposure_loc != -1);
 
 		std::cout << "SUCCESS\n";
 
@@ -896,12 +906,15 @@ private:
 
 		skybox_program.u_gamma_loc =
 			glGetUniformLocation(skybox_program.id, "u_gamma");
+		skybox_program.u_exposure_loc =
+			glGetUniformLocation(skybox_program.id, "u_exposure");
 
 		assert(skybox_program.u_view_matrix_loc != -1);
 		assert(skybox_program.u_projection_matrix_loc != -1);
 		assert(skybox_program.u_cube_sampler_loc != -1);
 		assert(skybox_program.u_mipmap_level_loc != -1);
 		assert(skybox_program.u_gamma_loc != -1);
+		assert(skybox_program.u_exposure_loc != -1);
 
 		std::cout << "SUCCESS\n";
 
@@ -942,12 +955,16 @@ private:
 
 		gaussian_blur_program.u_sampler_loc =
 			glGetUniformLocation(gaussian_blur_program.id, "u_sampler");
+
+		gaussian_blur_program.u_texture_size_loc =
+			glGetUniformLocation(gaussian_blur_program.id, "u_texture_size");
 		gaussian_blur_program.u_weights_loc =
 			glGetUniformLocation(gaussian_blur_program.id, "u_weights");
 		gaussian_blur_program.u_horizontal_loc =
 			glGetUniformLocation(gaussian_blur_program.id, "u_horizontal");
 
 		assert(gaussian_blur_program.u_sampler_loc != -1);
+		assert(gaussian_blur_program.u_texture_size_loc != -1);
 		assert(gaussian_blur_program.u_weights_loc != -1);
 		assert(gaussian_blur_program.u_horizontal_loc != -1);
 
@@ -1084,7 +1101,7 @@ private:
 		// Gaussian blur rt
 		for (int i = 0; i < 2; ++i)
 		{
-			bloom_render_targets[i + 2] = Texture2D(window_width / 2, window_height / 2, GL_RGBA16F,
+			bloom_render_targets[i + 2] = Texture2D(window_width / 8, window_height / 8, GL_RGBA16F,
 				GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR);
 
 			bloom_framebuffers[i + 1].attachTexture(GL_COLOR_ATTACHMENT0, bloom_render_targets[i + 2], 0);
@@ -1107,6 +1124,8 @@ private:
 	void resizeBloomFramebuffers()
 	{
 		bloom_depth_buffer->destroy();
+		delete bloom_depth_buffer;
+
 		bloom_depth_buffer = new Renderbuffer(GL_DEPTH_COMPONENT24, window_width, window_height);
 
 		for (int i = 0; i < 4; ++i)
@@ -1533,6 +1552,7 @@ private:
 	Texture bloom_render_targets[4];
 
 	int n_blur_passes = 5;
+
 	float blur_weights[5]
 	{
 		0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216

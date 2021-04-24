@@ -31,9 +31,6 @@ void main()
 	vec3 reflect_dir = reflect(-neg_light_dir, normal);
 
 	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), u_shininess);
-
-	// Using diffuse as spec map
-	float factor = (tex.r + tex.g + tex.b) / 3.0;
 	vec3 specular = vec3(spec, spec, spec) * u_dir_light.color;
 
 	out_color = vec4(diffuse + specular, 1.0);
